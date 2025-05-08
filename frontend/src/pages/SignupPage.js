@@ -5,9 +5,11 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useTheme } from '../context/ThemeContext';
 
-function SignupPage() {
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+function SignupPage({ setIsAuthenticated }) {
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
@@ -29,12 +31,12 @@ function SignupPage() {
         setIsLoading(true);
 
         try {
-            const response = await fetch('/api/users/register', {
+            const response = await fetch(`${API_URL}/users/register`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ name, email, password }),
+                body: JSON.stringify({ username, password }),
             });
 
             const data = await response.json();
@@ -43,11 +45,17 @@ function SignupPage() {
                 throw new Error(data.message || 'Registration failed');
             }
 
-            // Store the token in localStorage
+            // Store the token and user data in localStorage
             localStorage.setItem('userToken', data.token);
-            localStorage.setItem('userData', JSON.stringify(data.user));
+            localStorage.setItem('userData', JSON.stringify({
+                _id: data._id,
+                username: data.username
+            }));
 
-            // Redirect to dashboard
+            // Set authentication state
+            setIsAuthenticated(true);
+
+            // Redirect to home page instead of dashboard
             navigate('/');
         } catch (err) {
             setError(err.message);
@@ -65,27 +73,14 @@ function SignupPage() {
 
                 <form onSubmit={handleSubmit} className="auth-form">
                     <div className="form-group">
-                        <label htmlFor="name" style={{ color: theme.dark }}>Name</label>
+                        <label htmlFor="username" style={{ color: theme.dark }}>Username</label>
                         <Input
                             type="text"
-                            id="name"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            id="username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
                             required
-                            placeholder="Enter your name"
-                            style={{ borderColor: theme.primary }}
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="email" style={{ color: theme.dark }}>Email</label>
-                        <Input
-                            type="email"
-                            id="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            required
-                            placeholder="Enter your email"
+                            placeholder="Choose a username"
                             style={{ borderColor: theme.primary }}
                         />
                     </div>
@@ -130,7 +125,7 @@ function SignupPage() {
                 </form>
 
                 <div className="auth-links">
-                    <p>Already have an account? <Link to="/login" style={{ color: theme.primary }}>Login</Link></p>
+                    <p style={{ color: theme.dark }}>Already have an account? <Link to="/login" style={{ color: theme.primary }}>Login</Link></p>
                 </div>
             </Card>
         </div>

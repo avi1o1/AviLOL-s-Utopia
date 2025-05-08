@@ -77,7 +77,21 @@ const DiaryPage = () => {
         setLoading(true);
         setError(null);
 
-        const response = await axios.get(`${API_URL}/diary`);
+        // Get token from localStorage
+        const token = localStorage.getItem('userToken');
+        if (!token) {
+          // Redirect to login if no token
+          if (typeof window.showToast === 'function') {
+            window.showToast('Please login to view your diary entries', 'warning');
+          }
+          return;
+        }
+
+        const response = await axios.get(`${API_URL}/diary`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
 
         // Make sure response.data is an array
         if (response.data && Array.isArray(response.data)) {
@@ -123,6 +137,16 @@ const DiaryPage = () => {
 
     if (!title.trim() || !newEntry.trim()) return;
 
+    // Get token from localStorage
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      // Redirect to login if no token
+      if (typeof window.showToast === 'function') {
+        window.showToast('Please login to create diary entries', 'warning');
+      }
+      return;
+    }
+
     // Create a valid date object from entryDate
     let validDate = new Date(entryDate);
     if (!isValid(validDate)) {
@@ -146,7 +170,11 @@ const DiaryPage = () => {
       setError(null);
 
       // Save to API
-      const response = await axios.post(`${API_URL}/diary`, entryData);
+      const response = await axios.post(`${API_URL}/diary`, entryData, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
 
       // Add the new entry to state (use the returned entry from API with MongoDB _id)
       setEntries(prevEntries => Array.isArray(prevEntries) ? [response.data, ...prevEntries] : [response.data]);
@@ -159,6 +187,11 @@ const DiaryPage = () => {
       // Reset date to today
       const today = new Date();
       setEntryDate(format(today, 'yyyy-MM-dd'));
+
+      // Show success toast
+      if (typeof window.showToast === 'function') {
+        window.showToast('Diary entry saved successfully', 'success');
+      }
     } catch (err) {
       console.error('Error saving diary entry:', err);
       setError('Failed to save entry to server, but saved locally.');
@@ -170,6 +203,11 @@ const DiaryPage = () => {
         created: new Date().toISOString()
       };
       setEntries(prevEntries => Array.isArray(prevEntries) ? [localEntry, ...prevEntries] : [localEntry]);
+
+      // Show error toast
+      if (typeof window.showToast === 'function') {
+        window.showToast('Error saving to server. Saved locally as backup.', 'warning');
+      }
     } finally {
       setLoading(false);
     }
@@ -194,7 +232,12 @@ const DiaryPage = () => {
 
       if (isMongoId) {
         // Delete from API
-        await axios.delete(`${API_URL}/diary/entry/${id}`);
+        const token = localStorage.getItem('userToken');
+        await axios.delete(`${API_URL}/diary/entry/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
       }
 
       // Remove from state
@@ -248,6 +291,16 @@ const DiaryPage = () => {
 
     if (!title.trim() || !newEntry.trim()) return;
 
+    // Get token from localStorage
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      // Redirect to login if no token
+      if (typeof window.showToast === 'function') {
+        window.showToast('Please login to update diary entries', 'warning');
+      }
+      return;
+    }
+
     // Create a valid date object from entryDate
     let validDate = new Date(entryDate);
     if (!isValid(validDate)) {
@@ -278,7 +331,11 @@ const DiaryPage = () => {
 
       if (isMongoId) {
         // Update on API
-        const response = await axios.put(`${API_URL}/diary/entry/${entryId}`, entryData);
+        const response = await axios.put(`${API_URL}/diary/entry/${entryId}`, entryData, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
         updatedEntry = response.data;
       } else {
         // Local update for entries not yet synced to server
@@ -304,6 +361,11 @@ const DiaryPage = () => {
       setNewEntry('');
       setViewMode('list');
       setCurrentEntry(null);
+
+      // Show success toast
+      if (typeof window.showToast === 'function') {
+        window.showToast('Diary entry updated successfully', 'success');
+      }
     } catch (err) {
       console.error('Error updating diary entry:', err);
       setError('Failed to update entry on server, but updated locally.');
@@ -330,6 +392,11 @@ const DiaryPage = () => {
       setNewEntry('');
       setViewMode('list');
       setCurrentEntry(null);
+
+      // Show error toast
+      if (typeof window.showToast === 'function') {
+        window.showToast('Error updating on server, but updated locally', 'warning');
+      }
     } finally {
       setLoading(false);
     }

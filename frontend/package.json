@@ -2,6 +2,7 @@
   "name": "avilol",
   "version": "0.1.0",
   "private": true,
+  "proxy": "http://localhost:5000",
   "dependencies": {
     "@shadcn/ui": "^0.0.4",
     "@tailwindcss/postcss": "^4.1.4",

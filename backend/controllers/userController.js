@@ -7,16 +7,16 @@ const User = require('../models/userModel');
 // @route   POST /api/users/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
+    const { username, password } = req.body;
 
     // Validation
-    if (!name || !email || !password) {
+    if (!username || !password) {
         res.status(400);
-        throw new Error('Please add all fields');
+        throw new Error('Please add all required fields');
     }
 
     // Check if user exists
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ username });
     if (userExists) {
         res.status(400);
         throw new Error('User already exists');
@@ -24,16 +24,14 @@ const registerUser = asyncHandler(async (req, res) => {
 
     // Create user
     const user = await User.create({
-        name,
-        email,
+        username,
         password, // Will be hashed in the userModel
     });
 
     if (user) {
         res.status(201).json({
             _id: user._id,
-            name: user.name,
-            email: user.email,
+            username: user.username,
             token: generateToken(user._id),
         });
     } else {
@@ -46,17 +44,16 @@ const registerUser = asyncHandler(async (req, res) => {
 // @route   POST /api/users/login
 // @access  Public
 const loginUser = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    // Check for user email
-    const user = await User.findOne({ email });
+    // Check for username
+    const user = await User.findOne({ username });
 
     // Check if user exists and password matches
     if (user && (await user.matchPassword(password))) {
         res.json({
             _id: user._id,
-            name: user.name,
-            email: user.email,
+            username: user.username,
             token: generateToken(user._id),
         });
     } else {

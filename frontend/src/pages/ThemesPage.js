@@ -165,64 +165,6 @@ const ThemesPage = () => {
             ))}
           </div>
         </Card>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="p-6" style={{ 
-            borderLeft: `4px solid var(--color-primary)`,
-            background: isDarkTheme 
-              ? `var(--color-light)` 
-              : `linear-gradient(to right, var(--color-light), white)`,
-            color: textColor
-          }}>
-            <h2 className="text-xl font-display mb-4 pb-2 border-b-2" style={{ 
-              color: headingColor,
-              borderColor: isDarkTheme ? 'var(--color-light)' : 'var(--color-dark)'
-            }}>Journal Companion</h2>
-            <p className="mb-4" style={{ color: textColor }}>
-              Your selected theme creates the perfect ambiance for your Sunday reflections.
-              A personalized space helps establish a journaling ritual.
-            </p>
-            <p className="font-medium mb-2" style={{ color: textColor }}>Tips for meaningful entries:</p>
-            <ul className="list-disc ml-5 mb-4 space-y-1" style={{ color: textColor }}>
-              <li>Reserve a specific time each Sunday for reflection</li>
-              <li>Start with the week's standout moments or lessons</li>
-              <li>Consider using headings to organize your thoughts</li>
-              <li>Include meaningful quotes or conversations</li>
-              <li>End with intentions for the upcoming week</li>
-            </ul>
-          </Card>
-          
-          <Card className="p-6" style={{ 
-            borderRight: `4px solid var(--color-secondary)`,
-            background: isDarkTheme 
-              ? `var(--color-light)` 
-              : `linear-gradient(to left, var(--color-light), white)`,
-            color: textColor
-          }}>
-            <h2 className="text-xl font-display mb-4 pb-2 border-b-2" style={{ 
-              color: headingColor,
-              borderColor: isDarkTheme ? 'var(--color-light)' : 'var(--color-dark)'
-            }}>The Art of Self-reflection</h2>
-            <p className="mb-4" style={{ color: textColor }}>
-              Your journal entries are more than just records – they're stepping stones in your personal growth journey.
-            </p>
-            <div className="p-4 rounded-md mb-4" style={{ 
-              background: `linear-gradient(135deg, var(--color-accent), var(--color-light))`,
-              borderLeft: `3px solid var(--color-primary)`,
-              color: isDarkTheme ? 'var(--color-dark)' : 'var(--color-dark)'
-            }}>
-              <p className="italic">
-                "The practice of journaling helps us notice patterns, celebrate progress, and navigate challenges with greater awareness."
-              </p>
-            </div>
-            <p className="mb-3" style={{ color: textColor }}>
-              With approximately 100 words per entry, you have just enough space to capture the essence of your week without feeling overwhelmed.
-            </p>
-            <p style={{ color: textColor }}>
-              Over time, your collection of entries will become a valuable archive of your experiences and evolution.
-            </p>
-          </Card>
-        </div>
       </div>
     </div>
   );

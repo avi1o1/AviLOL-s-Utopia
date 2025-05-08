@@ -35,10 +35,10 @@ const safeFormat = (date, formatStr) => {
 const JournalPage = () => {
   // eslint-disable-next-line no-unused-vars
   const { currentTheme } = useTheme();
-  
+
   // Check if the current theme is a dark theme
   const isDarkTheme = ['nightOwl', 'darkRoast', 'obsidian', 'darkForest'].includes(currentTheme);
-  
+
   // Set contrasting colors based on theme type
   const textColor = isDarkTheme ? 'var(--color-text)' : 'var(--color-text)';
   const headingColor = isDarkTheme ? 'var(--color-text)' : 'var(--color-dark)';
@@ -56,7 +56,7 @@ const JournalPage = () => {
   const [error, setError] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [entryToDelete, setEntryToDelete] = useState(null);
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
@@ -74,17 +74,31 @@ const JournalPage = () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const response = await axios.get(`${API_URL}/journal`);
+
+        // Get token from localStorage
+        const token = localStorage.getItem('userToken');
+        if (!token) {
+          // Redirect to login if no token
+          if (typeof window.showToast === 'function') {
+            window.showToast('Please login to view your journal entries', 'warning');
+          }
+          return;
+        }
+
+        const response = await axios.get(`${API_URL}/journal`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
         console.log('API response:', response.data);
-        
+
         // Check if API returned valid data (array of entries)
         if (response.data && Array.isArray(response.data)) {
           console.log(`Successfully loaded ${response.data.length} entries from database`);
           setEntries(response.data);
         } else {
           console.warn('API did not return an array of entries:', response.data);
-          
+
           // Fall back to localStorage if API didn't return expected data
           const savedEntries = localStorage.getItem('journalEntries');
           if (savedEntries) {
@@ -102,7 +116,7 @@ const JournalPage = () => {
       } catch (err) {
         console.error('Error fetching journal entries:', err);
         setError('Failed to load entries from server. Using local data if available.');
-        
+
         // Fall back to localStorage if API fails
         const savedEntries = localStorage.getItem('journalEntries');
         if (savedEntries) {
@@ -133,16 +147,26 @@ const JournalPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!title.trim() || !newEntry.trim()) return;
-    
+
+    // Get token from localStorage
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      // Redirect to login if no token
+      if (typeof window.showToast === 'function') {
+        window.showToast('Please login to create journal entries', 'warning');
+      }
+      return;
+    }
+
     // Create a valid date object from entryDate
     let validDate = new Date(entryDate);
     if (!isValid(validDate)) {
       // Use current date if the provided date is invalid
       validDate = new Date();
     }
-    
+
     // Prepare journal entry with client-side ID
     const localEntry = {
       id: uuidv4(),
@@ -152,24 +176,25 @@ const JournalPage = () => {
       created: new Date().toISOString(),
       mood: "neutral" // Optional field that could be added later
     };
-    
+
     console.log('Attempting to save journal entry to database...');
     console.log('API URL:', `${API_URL}/journal`);
     console.log('Entry data:', localEntry);
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       // Try to save to API with more detailed error logging
       const response = await axios.post(`${API_URL}/journal`, localEntry, {
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         }
       });
-      
+
       console.log('API response:', response);
-      
+
       if (response.data && response.data._id) {
         // Successfully saved to database, use the returned entry (with MongoDB _id)
         console.log('Successfully saved to database with ID:', response.data._id);
@@ -187,7 +212,7 @@ const JournalPage = () => {
           return [localEntry, ...entriesArray];
         });
       }
-      
+
       // Reset form
       setTitle('');
       setNewEntry('');
@@ -196,7 +221,7 @@ const JournalPage = () => {
       // Reset date to today
       const today = new Date();
       setEntryDate(format(today, 'yyyy-MM-dd'));
-      
+
       // Show success toast
       if (typeof window.showToast === 'function') {
         window.showToast('Journal entry saved successfully', 'success');
@@ -205,16 +230,16 @@ const JournalPage = () => {
       console.error('Error saving journal entry:', err);
       console.error('Error details:', err.response ? err.response.data : 'No response data');
       console.error('Error status:', err.response ? err.response.status : 'No status');
-      
+
       setError(`Failed to save entry to server: ${err.message}. Using local storage as fallback.`);
-      
+
       // Still update local state even on error
       setEntries(prevEntries => {
         // Make sure prevEntries is an array
         const entriesArray = Array.isArray(prevEntries) ? prevEntries : [];
         return [localEntry, ...entriesArray];
       });
-      
+
       // Show error toast
       if (typeof window.showToast === 'function') {
         window.showToast(`Failed to save to server: ${err.message}. Saved locally.`, 'warning');
@@ -233,26 +258,31 @@ const JournalPage = () => {
   const confirmDelete = async () => {
     // This function is called when user confirms deletion in the modal
     const id = entryToDelete;
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       // Check if it's a MongoDB _id or a local id
       const isMongoId = id.length === 24 && /^[0-9a-fA-F]{24}$/.test(id);
-      
+
       if (isMongoId) {
         // Delete from API
-        await axios.delete(`${API_URL}/journal/${id}`);
+        const token = localStorage.getItem('userToken');
+        await axios.delete(`${API_URL}/journal/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
       }
-      
+
       // Remove from state
-      setEntries(prevEntries => 
-        Array.isArray(prevEntries) 
+      setEntries(prevEntries =>
+        Array.isArray(prevEntries)
           ? prevEntries.filter(entry => (entry._id || entry.id) !== id)
           : []
       );
-      
+
       if (currentEntry && (currentEntry._id === id || currentEntry.id === id)) {
         setViewMode('list');
         setCurrentEntry(null);
@@ -265,10 +295,10 @@ const JournalPage = () => {
     } catch (err) {
       console.error('Error deleting journal entry:', err);
       setError('Failed to delete entry from server, but removed locally.');
-      
+
       // Remove from state anyway
-      setEntries(prevEntries => 
-        Array.isArray(prevEntries) 
+      setEntries(prevEntries =>
+        Array.isArray(prevEntries)
           ? prevEntries.filter(entry => (entry._id || entry.id) !== id)
           : []
       );
@@ -294,16 +324,26 @@ const JournalPage = () => {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    
+
     if (!title.trim() || !newEntry.trim()) return;
-    
+
+    // Get token from localStorage
+    const token = localStorage.getItem('userToken');
+    if (!token) {
+      // Redirect to login if no token
+      if (typeof window.showToast === 'function') {
+        window.showToast('Please login to update journal entries', 'warning');
+      }
+      return;
+    }
+
     // Create a valid date object from entryDate
     let validDate = new Date(entryDate);
     if (!isValid(validDate)) {
       // Use current date if the provided date is invalid
       validDate = new Date();
     }
-    
+
     // Prepare updated entry data
     const updatedEntry = {
       ...currentEntry,
@@ -312,40 +352,44 @@ const JournalPage = () => {
       date: validDate.toISOString(),
       updated: new Date().toISOString()
     };
-    
+
     try {
       setLoading(true);
       setError(null);
-      
+
       // Check if it's a MongoDB _id or a local id
       const entryId = currentEntry._id || currentEntry.id;
       const isMongoId = entryId.length === 24 && /^[0-9a-fA-F]{24}$/.test(entryId);
-      
+
       if (isMongoId) {
         // Try to update on API
         await axios.put(`${API_URL}/journal/${entryId}`, {
           title,
           content: newEntry,
           date: validDate.toISOString()
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         });
       }
-      
+
       // Always update entries state regardless of API success
       setEntries(prevEntries => {
         if (!Array.isArray(prevEntries)) return [updatedEntry];
-        
-        return prevEntries.map(entry => 
+
+        return prevEntries.map(entry =>
           ((entry._id || entry.id) === (currentEntry._id || currentEntry.id))
             ? updatedEntry
             : entry
         );
       });
-      
+
       setTitle('');
       setNewEntry('');
       setViewMode('list');
       setCurrentEntry(null);
-      
+
       // Show success toast
       if (typeof window.showToast === 'function') {
         window.showToast('Journal entry updated successfully', 'success');
@@ -353,23 +397,23 @@ const JournalPage = () => {
     } catch (err) {
       console.error('Error updating journal entry:', err);
       setError('Failed to update entry on server, but updated locally.');
-      
+
       // Update local state anyway
       setEntries(prevEntries => {
         if (!Array.isArray(prevEntries)) return [updatedEntry];
-        
-        return prevEntries.map(entry => 
+
+        return prevEntries.map(entry =>
           ((entry._id || entry.id) === (currentEntry._id || currentEntry.id))
             ? updatedEntry
             : entry
         );
       });
-      
+
       setTitle('');
       setNewEntry('');
       setViewMode('list');
       setCurrentEntry(null);
-      
+
       // Show error toast
       if (typeof window.showToast === 'function') {
         window.showToast('Error updating on server, but updated locally', 'warning');
@@ -424,13 +468,13 @@ const JournalPage = () => {
           </Button>
         )}
       </div>
-      
+
       {viewMode === 'list' && (
-        <div className="grid gap-8">          
+        <div className="grid gap-8">
           {/* Search and filter controls */}
-          <Card 
-            className="p-5 mb-6" 
-            style={{ 
+          <Card
+            className="p-5 mb-6"
+            style={{
               backgroundColor: cardBgColor,
               borderLeft: '3px solid var(--color-secondary)'
             }}
@@ -457,7 +501,7 @@ const JournalPage = () => {
                     </svg>
                   </div>
                   {searchTerm && (
-                    <button 
+                    <button
                       className="absolute inset-y-0 right-0 flex items-center pr-3"
                       onClick={() => setSearchTerm('')}
                     >
@@ -468,7 +512,7 @@ const JournalPage = () => {
                   )}
                 </div>
               </div>
-              
+
               {/* Three fields in a row: start date, end date, and sort */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
@@ -486,7 +530,7 @@ const JournalPage = () => {
                     }}
                   />
                 </div>
-                
+
                 <div>
                   <label htmlFor="end-date" className="block font-display mb-2" style={{ color: headingColor }}>To Date</label>
                   <input
@@ -502,7 +546,7 @@ const JournalPage = () => {
                     }}
                   />
                 </div>
-                
+
                 <div>
                   <label htmlFor="sort-option" className="block font-display mb-2" style={{ color: headingColor }}>Sort By</label>
                   <select
@@ -522,7 +566,7 @@ const JournalPage = () => {
                   </select>
                 </div>
               </div>
-              
+
               {/* Clear filters button */}
               {(searchTerm || startDateFilter || endDateFilter) && (
                 <div className="mt-4 flex justify-end">
@@ -545,23 +589,23 @@ const JournalPage = () => {
               )}
             </div>
           </Card>
-          
+
           {showEntryForm && (
-            <Card 
+            <Card
               className="entry-form p-6"
-              style={{ 
+              style={{
                 backgroundColor: cardBgColor,
                 borderTop: '3px solid var(--color-primary)'
               }}
             >
               <form onSubmit={handleSubmit}>
-                <h2 className="text-xl font-display mb-4 pb-2" style={{ 
+                <h2 className="text-xl font-display mb-4 pb-2" style={{
                   color: headingColor,
                   borderBottom: '2px solid var(--color-primary)'
                 }}>
                   New Journal Entry
                 </h2>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
                     <Input
@@ -578,7 +622,7 @@ const JournalPage = () => {
                       }}
                     />
                   </div>
-                  
+
                   <div>
                     <label htmlFor="entry-date" className="block font-display mb-2" style={{ color: headingColor }}>Date</label>
                     <input
@@ -595,7 +639,7 @@ const JournalPage = () => {
                     />
                   </div>
                 </div>
-                
+
                 <div className="mb-4">
                   <Textarea
                     label="Journal Entry"
@@ -611,17 +655,17 @@ const JournalPage = () => {
                       borderColor: 'var(--color-border)'
                     }}
                   />
-                  
+
                   <div className="flex justify-between items-center mt-2 text-sm">
                     <div style={{ color: secondaryTextColor }}>
                       <p>Markdown supported: **bold**, *italic*, # headlines, - lists, etc.</p>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-2">
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     variant="primary"
                     style={{
                       backgroundColor: 'var(--color-primary)',
@@ -631,8 +675,8 @@ const JournalPage = () => {
                   >
                     Save Entry
                   </Button>
-                  <Button 
-                    type="button" 
+                  <Button
+                    type="button"
                     variant="light"
                     onClick={() => {
                       setShowEntryForm(false);
@@ -651,12 +695,12 @@ const JournalPage = () => {
               </form>
             </Card>
           )}
-          
+
           {entries.length === 0 ? (
             <div className="text-center p-8" style={{ color: secondaryTextColor }}>
               <p className="italic mb-4">No journal entries yet. Start writing your first entry!</p>
               {!showEntryForm && (
-                <Button 
+                <Button
                   onClick={() => setShowEntryForm(true)}
                   variant="primary"
                   style={{
@@ -677,31 +721,31 @@ const JournalPage = () => {
                   // Apply search filter
                   if (searchTerm.trim()) {
                     const term = searchTerm.toLowerCase();
-                    if (!(entry.title?.toLowerCase().includes(term) || 
-                          entry.content?.toLowerCase().includes(term))) {
+                    if (!(entry.title?.toLowerCase().includes(term) ||
+                      entry.content?.toLowerCase().includes(term))) {
                       return false;
                     }
                   }
-                  
+
                   // Apply date range filter
                   if (startDateFilter || endDateFilter) {
                     const entryDate = new Date(entry.date);
-                    
+
                     if (startDateFilter && new Date(startDateFilter) > entryDate) {
                       return false;
                     }
-                    
+
                     if (endDateFilter) {
                       // Set time to end of day for end date comparison
                       const endDate = new Date(endDateFilter);
                       endDate.setHours(23, 59, 59, 999);
-                      
+
                       if (endDate < entryDate) {
                         return false;
                       }
                     }
                   }
-                  
+
                   return true;
                 })
                 // Apply sorting
@@ -717,98 +761,98 @@ const JournalPage = () => {
                 })
                 .map(entry => {
                   const entryId = entry._id || entry.id;
-                  
-                    return (
-                    <Card 
-                      key={entryId} 
+
+                  return (
+                    <Card
+                      key={entryId}
                       className="neo-brutal-card entry-card p-6"
-                      style={{ 
-                      backgroundColor: cardBgColor,
-                      borderLeft: '3px solid var(--color-primary)',
-                      boxShadow: '3px 3px 0 var(--color-shadow)'
+                      style={{
+                        backgroundColor: cardBgColor,
+                        borderLeft: '3px solid var(--color-primary)',
+                        boxShadow: '3px 3px 0 var(--color-shadow)'
                       }}
                     >
                       <div className="entry-card-header flex justify-between items-start">
-                      <h3 className="font-display text-3xl" style={{ color: headingColor }}>{entry.title || 'Untitled Entry'}</h3>
-                      <div className="entry-meta">
-                        <span className="entry-date" style={{ color: textColor }}>
-                        {safeFormat(new Date(entry.date), 'MMMM d, yyyy')}
-                        </span>
-                        {entry.updated && (
-                        <span style={{ color: secondaryTextColor, marginLeft: '0.5rem' }}>
-                          Edited: {safeFormat(new Date(entry.updated), 'MMM d, yyyy')}
-                        </span>
-                        )}
+                        <h3 className="font-display text-3xl" style={{ color: headingColor }}>{entry.title || 'Untitled Entry'}</h3>
+                        <div className="entry-meta">
+                          <span className="entry-date" style={{ color: textColor }}>
+                            {safeFormat(new Date(entry.date), 'MMMM d, yyyy')}
+                          </span>
+                          {entry.updated && (
+                            <span style={{ color: secondaryTextColor, marginLeft: '0.5rem' }}>
+                              Edited: {safeFormat(new Date(entry.updated), 'MMM d, yyyy')}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      </div>
-                      
+
                       <div className="entry-card-content">
-                      <div 
-                        className="prose max-w-none markdown-content" 
-                        style={{ 
-                        color: textColor,
-                        '--heading-color': headingColor,
-                        '--text-color': textColor,
-                        '--link-color': 'var(--color-primary)'
-                        }}
-                      >
-                        <ReactMarkdown components={{
-                        h1: ({node, children, ...props}) => <h1 style={{color: headingColor}} {...props}>{children}</h1>,
-                        h2: ({node, children, ...props}) => <h2 style={{color: headingColor}} {...props}>{children}</h2>,
-                        h3: ({node, children, ...props}) => <h3 style={{color: headingColor}} {...props}>{children}</h3>,
-                        h4: ({node, children, ...props}) => <h4 style={{color: headingColor}} {...props}>{children}</h4>,
-                        h5: ({node, children, ...props}) => <h5 style={{color: headingColor}} {...props}>{children}</h5>,
-                        h6: ({node, children, ...props}) => <h6 style={{color: headingColor}} {...props}>{children}</h6>,
-                        a: ({node, children, ...props}) => <a style={{color: 'var(--color-primary)'}} {...props}>{children}</a>,
-                        strong: ({node, ...props}) => <strong style={{color: headingColor}} {...props} />,
-                        em: ({node, ...props}) => <em style={{color: textColor}} {...props} />
-                        }}>
-                        {entry.content}
-                        </ReactMarkdown>
+                        <div
+                          className="prose max-w-none markdown-content"
+                          style={{
+                            color: textColor,
+                            '--heading-color': headingColor,
+                            '--text-color': textColor,
+                            '--link-color': 'var(--color-primary)'
+                          }}
+                        >
+                          <ReactMarkdown components={{
+                            h1: ({ node, children, ...props }) => <h1 style={{ color: headingColor }} {...props}>{children}</h1>,
+                            h2: ({ node, children, ...props }) => <h2 style={{ color: headingColor }} {...props}>{children}</h2>,
+                            h3: ({ node, children, ...props }) => <h3 style={{ color: headingColor }} {...props}>{children}</h3>,
+                            h4: ({ node, children, ...props }) => <h4 style={{ color: headingColor }} {...props}>{children}</h4>,
+                            h5: ({ node, children, ...props }) => <h5 style={{ color: headingColor }} {...props}>{children}</h5>,
+                            h6: ({ node, children, ...props }) => <h6 style={{ color: headingColor }} {...props}>{children}</h6>,
+                            a: ({ node, children, ...props }) => <a style={{ color: 'var(--color-primary)' }} {...props}>{children}</a>,
+                            strong: ({ node, ...props }) => <strong style={{ color: headingColor }} {...props} />,
+                            em: ({ node, ...props }) => <em style={{ color: textColor }} {...props} />
+                          }}>
+                            {entry.content}
+                          </ReactMarkdown>
+                        </div>
                       </div>
-                      </div>
-                      
+
                       <div className="entry-card-footer">
-                      <div className="btn-group">
-                        <Button
-                        onClick={() => handleEdit(entry)}
-                        variant="accent"
-                        size="small"
-                        className="btn-icon"
-                        style={{
-                          backgroundColor: 'var(--color-accent)',
-                          color: isDarkTheme ? 'var(--color-dark)' : 'var(--color-dark)',
-                          border: 'none'
-                        }}
-                        >
-                        Edit
-                        </Button>
-                        <Button
-                        onClick={() => handleDelete(entry._id || entry.id)}
-                        variant="dark"
-                        size="small"
-                        className="btn-icon"
-                        style={{
-                          backgroundColor: isDarkTheme ? 'var(--color-accent)' : 'var(--color-dark)',
-                          color: isDarkTheme ? 'var(--color-dark)' : 'white',
-                          border: 'none'
-                        }}
-                        >
-                        Delete
-                        </Button>
-                      </div>
+                        <div className="btn-group">
+                          <Button
+                            onClick={() => handleEdit(entry)}
+                            variant="accent"
+                            size="small"
+                            className="btn-icon"
+                            style={{
+                              backgroundColor: 'var(--color-accent)',
+                              color: isDarkTheme ? 'var(--color-dark)' : 'var(--color-dark)',
+                              border: 'none'
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            onClick={() => handleDelete(entry._id || entry.id)}
+                            variant="dark"
+                            size="small"
+                            className="btn-icon"
+                            style={{
+                              backgroundColor: isDarkTheme ? 'var(--color-accent)' : 'var(--color-dark)',
+                              color: isDarkTheme ? 'var(--color-dark)' : 'white',
+                              border: 'none'
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
                     </Card>
-                    );
+                  );
                 })}
             </div>
           )}
         </div>
       )}
-      
+
       {viewMode === 'view' && currentEntry && (
         <div className="view-entry">
-          <div className="flex justify-between items-center mb-6 pb-2" style={{ 
+          <div className="flex justify-between items-center mb-6 pb-2" style={{
             borderBottom: '2px solid var(--color-primary)'
           }}>
             <div>
@@ -825,10 +869,10 @@ const JournalPage = () => {
               </div>
             </div>
           </div>
-          
-          <Card 
+
+          <Card
             className="p-6 mb-6"
-            style={{ 
+            style={{
               backgroundColor: cardBgColor,
               borderLeft: '3px solid var(--color-primary)'
             }}
@@ -839,7 +883,7 @@ const JournalPage = () => {
               </ReactMarkdown>
             </div>
           </Card>
-          
+
           <div className="flex justify-between">
             <Button
               onClick={() => setViewMode('list')}
@@ -852,7 +896,7 @@ const JournalPage = () => {
             >
               Back to All Entries
             </Button>
-            
+
             <div className="btn-group">
               <Button
                 onClick={() => handleEdit(currentEntry)}
@@ -880,19 +924,19 @@ const JournalPage = () => {
           </div>
         </div>
       )}
-      
+
       {viewMode === 'edit' && currentEntry && (
         <div className="edit-entry">
-          <h2 className="text-2xl font-display mb-4 pb-2" style={{ 
+          <h2 className="text-2xl font-display mb-4 pb-2" style={{
             color: headingColor,
             borderBottom: '2px solid var(--color-primary)'
           }}>
             Edit Journal Entry
           </h2>
-          
-          <Card 
+
+          <Card
             className="p-6 mb-6"
-            style={{ 
+            style={{
               backgroundColor: cardBgColor,
               borderLeft: '3px solid var(--color-primary)'
             }}
@@ -913,7 +957,7 @@ const JournalPage = () => {
                     }}
                   />
                 </div>
-                
+
                 <div>
                   <label htmlFor="edit-date" className="block font-display mb-2" style={{ color: headingColor }}>Date</label>
                   <input
@@ -930,7 +974,7 @@ const JournalPage = () => {
                   />
                 </div>
               </div>
-              
+
               <div className="mb-4">
                 <Textarea
                   label="Journal Entry"
@@ -945,14 +989,14 @@ const JournalPage = () => {
                     borderColor: 'var(--color-border)'
                   }}
                 />
-                
+
                 <div className="flex justify-between items-center mt-2 text-sm">
                   <div style={{ color: secondaryTextColor }}>
                     <p>Markdown supported: **bold**, *italic*, # headlines, - lists, etc.</p>
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex justify-between">
                 <Button
                   type="button"
@@ -971,10 +1015,10 @@ const JournalPage = () => {
                 >
                   Cancel
                 </Button>
-                
+
                 <div className="btn-group">
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     variant="primary"
                     style={{
                       backgroundColor: 'var(--color-primary)',
@@ -1005,7 +1049,7 @@ const JournalPage = () => {
           confirmVariant="dark"
           styles={{
             overlay: { backgroundColor: 'rgba(0, 0, 0, 0.75)' },
-            modal: { 
+            modal: {
               backgroundColor: cardBgColor,
               color: textColor,
               borderColor: 'var(--color-error)'
@@ -1027,7 +1071,7 @@ const JournalPage = () => {
           <p style={{ color: textColor }}>Are you sure you want to delete this journal entry? This action cannot be undone.</p>
         </Modal>
       )}
-      
+
       {/* Toast Container for showing notifications */}
       <ToastContainer />
     </div>

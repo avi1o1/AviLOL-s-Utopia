@@ -6,19 +6,21 @@ const {
   updateDiaryEntry,
   deleteDiaryEntry
 } = require('../controllers/diaryController');
+const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
+// All diary routes are protected - require authentication
 // Get all diary entries
-router.get('/', getDiaryEntries);
+router.get('/', protect, getDiaryEntries);
 
 // Create a new diary entry
-router.post('/', createDiaryEntry);
+router.post('/', protect, createDiaryEntry);
 
 // Get, update, or delete a specific diary entry
 router.route('/entry/:id')
-  .get(getDiaryEntry)
-  .put(updateDiaryEntry)
-  .delete(deleteDiaryEntry);
+  .get(protect, getDiaryEntry)
+  .put(protect, updateDiaryEntry)
+  .delete(protect, deleteDiaryEntry);
 
 module.exports = router;

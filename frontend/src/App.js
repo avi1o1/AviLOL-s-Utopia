@@ -4,10 +4,9 @@ import './App.css';
 
 // Pages
 import LandingPage from './pages/LandingPage';
-import DashboardPage from './pages/DashboardPage';
 import DiaryPage from './pages/DiaryPage';
 import JournalPage from './pages/JournalPage';
-import MomentsPage from './pages/MomentsPage';
+import BucketsPage from './pages/BucketsPage';
 import MediaPage from './pages/MediaPage';
 import ThemesPage from './pages/ThemesPage';
 import LoginPage from './pages/LoginPage';
@@ -22,17 +21,28 @@ import { ToastProvider } from './components/ui/Toast';
 function App() {
   const currentYear = new Date().getFullYear();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Add loading state
 
   // Check if user is authenticated on component mount
   useEffect(() => {
-    const token = localStorage.getItem('userToken');
-    if (token) {
-      setIsAuthenticated(true);
-    }
+    const checkAuth = async () => {
+      const token = localStorage.getItem('userToken');
+      if (token) {
+        setIsAuthenticated(true);
+      }
+      setIsLoading(false); // Mark loading as complete
+    };
+
+    checkAuth();
   }, []);
 
   // Protected route component
   const ProtectedRoute = ({ children }) => {
+    if (isLoading) {
+      // Return a loading indicator or null while checking authentication
+      return <div>Loading...</div>;
+    }
+
     if (!isAuthenticated) {
       return <Navigate to="/login" />;
     }
@@ -56,11 +66,6 @@ function App() {
                 <nav className="nav-links">
                   {isAuthenticated ? (
                     <>
-                      <NavLink to="/dashboard" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      }>
-                        Dashboard
-                      </NavLink>
                       <NavLink to="/diary" className={({ isActive }) =>
                         isActive ? "nav-link active" : "nav-link"
                       }>
@@ -71,10 +76,10 @@ function App() {
                       }>
                         Journal
                       </NavLink>
-                      <NavLink to="/moments" className={({ isActive }) =>
+                      <NavLink to="/buckets" className={({ isActive }) =>
                         isActive ? "nav-link active" : "nav-link"
                       }>
-                        Moments
+                        Buckets
                       </NavLink>
                       <NavLink to="/media" className={({ isActive }) =>
                         isActive ? "nav-link active" : "nav-link"
@@ -90,15 +95,20 @@ function App() {
                     </>
                   ) : (
                     <>
-                      <NavLink to="/login" className={({ isActive }) =>
+                      <NavLink to="/themes" className={({ isActive }) =>
                         isActive ? "nav-link active" : "nav-link"
                       }>
-                        Login
+                        Themes
                       </NavLink>
                       <NavLink to="/signup" className={({ isActive }) =>
                         isActive ? "nav-link active" : "nav-link"
                       }>
                         Sign Up
+                      </NavLink>
+                      <NavLink to="/login" className={({ isActive }) =>
+                        isActive ? "nav-link active" : "nav-link"
+                      }>
+                        Login
                       </NavLink>
                     </>
                   )}
@@ -113,13 +123,9 @@ function App() {
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/login" element={<LoginPage setIsAuthenticated={setIsAuthenticated} />} />
                   <Route path="/signup" element={<SignupPage setIsAuthenticated={setIsAuthenticated} />} />
+                  <Route path="/themes" element={<ThemesPage />} />
 
                   {/* Protected routes */}
-                  <Route path="/dashboard" element={
-                    <ProtectedRoute>
-                      <DashboardPage />
-                    </ProtectedRoute>
-                  } />
                   <Route path="/diary" element={
                     <ProtectedRoute>
                       <DiaryPage />
@@ -130,19 +136,14 @@ function App() {
                       <JournalPage />
                     </ProtectedRoute>
                   } />
-                  <Route path="/moments" element={
+                  <Route path="/buckets" element={
                     <ProtectedRoute>
-                      <MomentsPage />
+                      <BucketsPage />
                     </ProtectedRoute>
                   } />
                   <Route path="/media" element={
                     <ProtectedRoute>
                       <MediaPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/themes" element={
-                    <ProtectedRoute>
-                      <ThemesPage />
                     </ProtectedRoute>
                   } />
                 </Routes>

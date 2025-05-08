@@ -31,11 +31,13 @@ app.use((req, res, next) => {
 const diaryRoutes = require('./routes/diaryRoutes');
 const journalRoutes = require('./routes/journalRoutes');
 const userRoutes = require('./routes/userRoutes');
+const bucketRoutes = require('./routes/bucketRoutes');
 
 // Mount routes
 app.use('/api/diary', diaryRoutes);
 app.use('/api/journal', journalRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/buckets', bucketRoutes);
 
 // Root route
 app.get('/', (req, res) => {
