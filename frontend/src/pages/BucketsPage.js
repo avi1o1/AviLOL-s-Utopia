@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -7,12 +7,11 @@ import Textarea from '../components/ui/Textarea';
 import Modal from '../components/ui/Modal';
 import { Toast } from '../components/ui/Toast';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
 const BucketsPage = () => {
     const { currentTheme, themes } = useTheme();
     const theme = themes[currentTheme];
-
-    // API base URL
-    const API_BASE_URL = 'http://localhost:5000/api';
 
     // State for buckets and UI
     const [buckets, setBuckets] = useState([]);
@@ -25,10 +24,9 @@ const BucketsPage = () => {
     const [showEditItemModal, setShowEditItemModal] = useState(false);
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
     const [openBucketMenuId, setOpenBucketMenuId] = useState(null);
-    const [openItemMenuId, setOpenItemMenuId] = useState(null);
 
     // Ref for detecting clicks outside menus
-    const menuRef = useRef(null);
+    const menuRefs = useRef({});
 
     // Form states
     const [newBucket, setNewBucket] = useState({
@@ -50,17 +48,12 @@ const BucketsPage = () => {
     // Collection of possible bucket icons
     const bucketIcons = ['📝', '🎬', '📚', '🎵', '🍔', '✈️', '💡', '🎮', '📷', '🏆'];
 
-    // Fetch buckets on component mount
-    useEffect(() => {
-        fetchBuckets();
-    }, []);
-
     // Handle clicks outside the menu
     useEffect(() => {
         function handleClickOutside(event) {
-            if (menuRef.current && !menuRef.current.contains(event.target)) {
+            if (openBucketMenuId && menuRefs.current[openBucketMenuId] &&
+                !menuRefs.current[openBucketMenuId].contains(event.target)) {
                 setOpenBucketMenuId(null);
-                setOpenItemMenuId(null);
             }
         }
 
@@ -68,7 +61,7 @@ const BucketsPage = () => {
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, []);
+    }, [openBucketMenuId]);
 
     // Function to initialize bucket editing
     const initBucketEdit = (bucket) => {
@@ -109,7 +102,7 @@ const BucketsPage = () => {
                 return;
             }
 
-            const response = await fetch(`${API_BASE_URL}/buckets/${editingBucket.id}`, {
+            const response = await fetch(`${API_URL}/buckets/${editingBucket.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -134,7 +127,9 @@ const BucketsPage = () => {
                 bucket._id === editingBucket.id ? data : bucket
             );
 
-            setBuckets(updatedBuckets);
+            // Sort buckets with pinned at top
+            const sortedBuckets = sortBucketsWithPinnedAtTop(updatedBuckets);
+            setBuckets(sortedBuckets);
 
             // If this was the selected bucket, update that too
             if (selectedBucket && selectedBucket._id === editingBucket.id) {
@@ -161,7 +156,7 @@ const BucketsPage = () => {
         try {
             const token = localStorage.getItem('userToken');
 
-            const response = await fetch(`${API_BASE_URL}/buckets/${selectedBucket._id}/items/${editingItem.id}`, {
+            const response = await fetch(`${API_URL}/buckets/${selectedBucket._id}/items/${editingItem.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -182,11 +177,14 @@ const BucketsPage = () => {
             // Update the local state with the updated item
             const updatedBuckets = buckets.map(bucket => {
                 if (bucket._id === selectedBucket._id) {
+                    const updatedItems = bucket.items.map(item =>
+                        item._id === editingItem.id ? data : item
+                    );
+                    // Sort items with pinned at top
+                    const sortedItems = sortItemsWithPinnedAtTop(updatedItems);
                     return {
                         ...bucket,
-                        items: bucket.items.map(item =>
-                            item._id === editingItem.id ? data : item
-                        )
+                        items: sortedItems
                     };
                 }
                 return bucket;
@@ -196,11 +194,14 @@ const BucketsPage = () => {
 
             // Also update the selected bucket if it's open
             if (selectedBucket) {
+                const updatedItems = selectedBucket.items.map(item =>
+                    item._id === editingItem.id ? data : item
+                );
+                // Sort items with pinned at top
+                const sortedItems = sortItemsWithPinnedAtTop(updatedItems);
                 setSelectedBucket({
                     ...selectedBucket,
-                    items: selectedBucket.items.map(item =>
-                        item._id === editingItem.id ? data : item
-                    )
+                    items: sortedItems
                 });
             }
 
@@ -211,8 +212,32 @@ const BucketsPage = () => {
         }
     };
 
+    // Function to sort buckets with pinned ones at the top
+    const sortBucketsWithPinnedAtTop = (bucketsArray) => {
+        return [...bucketsArray].sort((a, b) => {
+            // If a is pinned and b is not, a comes first
+            if (a.isHighlighted && !b.isHighlighted) return -1;
+            // If b is pinned and a is not, b comes first
+            if (!a.isHighlighted && b.isHighlighted) return 1;
+            // Otherwise maintain the current order
+            return 0;
+        });
+    };
+
+    // Function to sort items with pinned ones at the top
+    const sortItemsWithPinnedAtTop = (itemsArray) => {
+        return [...itemsArray].sort((a, b) => {
+            // If a is pinned and b is not, a comes first
+            if (a.isHighlighted && !b.isHighlighted) return -1;
+            // If b is pinned and a is not, b comes first
+            if (!a.isHighlighted && b.isHighlighted) return 1;
+            // Otherwise maintain the current order
+            return 0;
+        });
+    };
+
     // Function to fetch all buckets
-    const fetchBuckets = async () => {
+    const fetchBuckets = useCallback(async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem('userToken');
@@ -223,7 +248,7 @@ const BucketsPage = () => {
                 return;
             }
 
-            const response = await fetch(`${API_BASE_URL}/buckets`, {
+            const response = await fetch(`${API_URL}/buckets`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -235,18 +260,30 @@ const BucketsPage = () => {
                 throw new Error(data.message || 'Error fetching buckets');
             }
 
-            setBuckets(data);
+            // Ensure all buckets have items array initialized
+            const bucketsWithItems = data.map(bucket => ({
+                ...bucket,
+                items: bucket.items || []
+            }));
+
+            // Sort buckets with pinned at top
+            const sortedBuckets = sortBucketsWithPinnedAtTop(bucketsWithItems);
+            setBuckets(sortedBuckets);
             setLoading(false);
         } catch (err) {
             setError(err.message);
             setLoading(false);
         }
-    };
+    }, []);
+
+    // Fetch buckets on component mount
+    useEffect(() => {
+        fetchBuckets();
+    }, [fetchBuckets]);
 
     // Function to create a new bucket
     const handleCreateBucket = async (e) => {
         e.preventDefault();
-        console.log('Creating bucket with data:', newBucket);
 
         if (!newBucket.name.trim()) {
             showNotification('Please enter a bucket name', 'error');
@@ -261,10 +298,7 @@ const BucketsPage = () => {
                 return;
             }
 
-            console.log('Sending request to:', `${API_BASE_URL}/buckets`);
-            console.log('Headers:', { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` });
-
-            const response = await fetch(`${API_BASE_URL}/buckets`, {
+            const response = await fetch(`${API_URL}/buckets`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -274,13 +308,14 @@ const BucketsPage = () => {
             });
 
             const data = await response.json();
-            console.log('Response from server:', data);
 
             if (!response.ok) {
                 throw new Error(data.message || 'Error creating bucket');
             }
 
-            setBuckets([...buckets, data]);
+            // Sort buckets with pinned at top after adding new bucket
+            const updatedBuckets = sortBucketsWithPinnedAtTop([...buckets, data]);
+            setBuckets(updatedBuckets);
             setNewBucket({ name: '', description: '', icon: '📝', color: '#3498db' });
             setShowAddBucketModal(false);
             showNotification('Bucket created successfully!', 'success');
@@ -302,7 +337,7 @@ const BucketsPage = () => {
         try {
             const token = localStorage.getItem('userToken');
 
-            const response = await fetch(`${API_BASE_URL}/buckets/${selectedBucket._id}/items`, {
+            const response = await fetch(`${API_URL}/buckets/${selectedBucket._id}/items`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -320,9 +355,11 @@ const BucketsPage = () => {
             // Update the local state with the new item
             const updatedBuckets = buckets.map(bucket => {
                 if (bucket._id === selectedBucket._id) {
+                    // Sort items with pinned at top
+                    const sortedItems = sortItemsWithPinnedAtTop([...bucket.items, data]);
                     return {
                         ...bucket,
-                        items: [...bucket.items, data]
+                        items: sortedItems
                     };
                 }
                 return bucket;
@@ -332,9 +369,11 @@ const BucketsPage = () => {
 
             // Also update the selected bucket if it's open
             if (selectedBucket) {
+                // Sort items with pinned at top
+                const sortedItems = sortItemsWithPinnedAtTop([...selectedBucket.items, data]);
                 setSelectedBucket({
                     ...selectedBucket,
-                    items: [...selectedBucket.items, data]
+                    items: sortedItems
                 });
             }
 
@@ -355,7 +394,7 @@ const BucketsPage = () => {
         try {
             const token = localStorage.getItem('userToken');
 
-            const response = await fetch(`${API_BASE_URL}/buckets/${bucketId}`, {
+            const response = await fetch(`${API_URL}/buckets/${bucketId}`, {
                 method: 'DELETE',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -388,7 +427,7 @@ const BucketsPage = () => {
         try {
             const token = localStorage.getItem('userToken');
 
-            const response = await fetch(`${API_BASE_URL}/buckets/${selectedBucket._id}/items/${itemId}`, {
+            const response = await fetch(`${API_URL}/buckets/${selectedBucket._id}/items/${itemId}`, {
                 method: 'DELETE',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -425,21 +464,21 @@ const BucketsPage = () => {
         }
     };
 
-    // Toggle highlighting of an item
-    const toggleHighlightItem = async (itemId, currentHighlightState) => {
+    // Toggle pinning of an item (previously called highlighting)
+    const togglePinItem = async (itemId, currentPinnedState) => {
         if (!selectedBucket) return;
 
         try {
             const token = localStorage.getItem('userToken');
 
-            const response = await fetch(`${API_BASE_URL}/buckets/${selectedBucket._id}/items/${itemId}`, {
+            const response = await fetch(`${API_URL}/buckets/${selectedBucket._id}/items/${itemId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    isHighlighted: !currentHighlightState
+                    isHighlighted: !currentPinnedState
                 }),
             });
 
@@ -453,11 +492,14 @@ const BucketsPage = () => {
             // Update the buckets list
             const updatedBuckets = buckets.map(bucket => {
                 if (bucket._id === selectedBucket._id) {
+                    const updatedItems = bucket.items.map(item =>
+                        item._id === itemId ? { ...item, isHighlighted: data.isHighlighted } : item
+                    );
+                    // Sort items with pinned at top
+                    const sortedItems = sortItemsWithPinnedAtTop(updatedItems);
                     return {
                         ...bucket,
-                        items: bucket.items.map(item =>
-                            item._id === itemId ? { ...item, isHighlighted: data.isHighlighted } : item
-                        )
+                        items: sortedItems
                     };
                 }
                 return bucket;
@@ -466,23 +508,26 @@ const BucketsPage = () => {
             setBuckets(updatedBuckets);
 
             // Also update the selected bucket
+            const updatedItems = selectedBucket.items.map(item =>
+                item._id === itemId ? { ...item, isHighlighted: data.isHighlighted } : item
+            );
+            // Sort items with pinned at top
+            const sortedItems = sortItemsWithPinnedAtTop(updatedItems);
             setSelectedBucket({
                 ...selectedBucket,
-                items: selectedBucket.items.map(item =>
-                    item._id === itemId ? { ...item, isHighlighted: data.isHighlighted } : item
-                )
+                items: sortedItems
             });
         } catch (err) {
             showNotification(err.message, 'error');
         }
     };
 
-    // Toggle highlighting of a bucket
-    const toggleHighlightBucket = async (bucketId, currentHighlightState) => {
+    // Toggle pinning of a bucket (previously called highlighting)
+    const togglePinBucket = async (bucketId, currentPinnedState) => {
         try {
             const token = localStorage.getItem('userToken');
 
-            const response = await fetch(`${API_BASE_URL}/buckets/${bucketId}/highlight`, {
+            const response = await fetch(`${API_URL}/buckets/${bucketId}/highlight`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -497,12 +542,14 @@ const BucketsPage = () => {
 
             const data = await response.json();
 
-            // Update the buckets list
+            // Update the buckets list with updated pinned status
             const updatedBuckets = buckets.map(bucket =>
                 bucket._id === bucketId ? { ...bucket, isHighlighted: data.isHighlighted } : bucket
             );
 
-            setBuckets(updatedBuckets);
+            // Sort buckets with pinned at top
+            const sortedBuckets = sortBucketsWithPinnedAtTop(updatedBuckets);
+            setBuckets(sortedBuckets);
 
             // Also update the selected bucket if this was it
             if (selectedBucket && selectedBucket._id === bucketId) {
@@ -679,13 +726,19 @@ const BucketsPage = () => {
                                 style={{
                                     padding: '1.25rem',
                                     cursor: 'pointer',
-                                    backgroundColor: backgroundColorCard,
+                                    backgroundColor: bucket.isHighlighted ? `${bucket.color || theme.primary}15` : backgroundColorCard,
                                     borderLeft: `4px solid ${bucket.color || theme.primary}`,
+                                    borderTop: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
+                                    borderRight: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
+                                    borderBottom: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
                                     transform: selectedBucket && selectedBucket._id === bucket._id ? 'translateY(-3px)' : 'none',
                                     boxShadow: selectedBucket && selectedBucket._id === bucket._id
                                         ? '0 10px 15px rgba(0,0,0,0.1)'
-                                        : '0 4px 6px rgba(0,0,0,0.05)',
+                                        : bucket.isHighlighted
+                                            ? '0 6px 10px rgba(0,0,0,0.08)'
+                                            : '0 4px 6px rgba(0,0,0,0.05)',
                                     transition: 'all 0.2s ease',
+                                    position: 'relative'
                                 }}
                             >
                                 <div style={{
@@ -719,12 +772,11 @@ const BucketsPage = () => {
                                         </h3>
                                     </div>
 
-                                    <div ref={menuRef} style={{ position: 'relative' }}>
+                                    <div ref={(el) => (menuRefs.current[bucket._id] = el)} style={{ position: 'relative' }}>
                                         <Button
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setOpenBucketMenuId(openBucketMenuId === bucket._id ? null : bucket._id);
-                                                setOpenItemMenuId(null); // Close any open item menus
                                             }}
                                             style={{
                                                 backgroundColor: 'transparent',
@@ -756,7 +808,7 @@ const BucketsPage = () => {
                                                 <div
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        toggleHighlightBucket(bucket._id, bucket.isHighlighted);
+                                                        togglePinBucket(bucket._id, bucket.isHighlighted);
                                                         setOpenBucketMenuId(null);
                                                     }}
                                                     style={{
@@ -770,8 +822,8 @@ const BucketsPage = () => {
                                                     onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
                                                     onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
                                                 >
-                                                    <span style={{ fontSize: '0.9rem' }}>{bucket.isHighlighted ? '★' : '☆'}</span>
-                                                    <span>{bucket.isHighlighted ? 'Unhighlight' : 'Highlight'}</span>
+                                                    <span style={{ fontSize: '0.9rem' }}>{bucket.isHighlighted ? '📌' : '📌'}</span>
+                                                    <span>{bucket.isHighlighted ? 'Unpin' : 'Pin'}</span>
                                                 </div>
                                                 <div
                                                     onClick={(e) => {
@@ -948,7 +1000,8 @@ const BucketsPage = () => {
                                             alignItems: 'flex-start',
                                             gap: '1rem',
                                             boxShadow: item.isHighlighted ? '0 3px 7px rgba(0,0,0,0.08)' : 'none',
-                                            transition: 'all 0.2s ease'
+                                            transition: 'all 0.2s ease',
+                                            position: 'relative'
                                         }}
                                     >
                                         <div style={{ flex: 1 }}>
@@ -961,98 +1014,50 @@ const BucketsPage = () => {
                                             </div>
                                         </div>
 
-                                        <div ref={menuRef} style={{ position: 'relative' }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem'
+                                        }}>
                                             <Button
-                                                onClick={() => {
-                                                    setOpenItemMenuId(openItemMenuId === item._id ? null : item._id);
-                                                    setOpenBucketMenuId(null); // Close any open bucket menus
+                                                onClick={() => togglePinItem(item._id, item.isHighlighted)}
+                                                style={{
+                                                    backgroundColor: 'transparent',
+                                                    color: item.isHighlighted ? (selectedBucket.color || theme.primary) : textColorLight,
+                                                    padding: '0.5rem 0.75rem',
+                                                    borderRadius: '0.25rem',
+                                                    border: `1px solid ${item.isHighlighted ? (selectedBucket.color || theme.primary) : textColorLight + '50'}`
                                                 }}
+                                                title={item.isHighlighted ? "Unpin" : "Pin"}
+                                            >
+                                                {item.isHighlighted ? 'Unpin' : 'Pin'}
+                                            </Button>
+                                            <Button
+                                                onClick={() => initItemEdit(item)}
                                                 style={{
                                                     backgroundColor: 'transparent',
                                                     color: textColorLight,
-                                                    padding: '0.25rem',
-                                                    fontSize: '1.2rem',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    width: '40px',
-                                                    height: '40px'
-                                                }}
-                                            >
-                                                ⋮
-                                            </Button>
-
-                                            {openItemMenuId === item._id && (
-                                                <div style={{
-                                                    position: 'absolute',
-                                                    right: 0,
-                                                    top: '100%',
-                                                    backgroundColor: backgroundColorCard,
-                                                    border: `1px solid ${textColorLight}30`,
+                                                    padding: '0.5rem 0.75rem',
                                                     borderRadius: '0.25rem',
-                                                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                                                    zIndex: 10,
-                                                    minWidth: '140px'
-                                                }}>
-                                                    <div
-                                                        onClick={() => {
-                                                            toggleHighlightItem(item._id, item.isHighlighted);
-                                                            setOpenItemMenuId(null);
-                                                        }}
-                                                        style={{
-                                                            padding: '0.5rem 1rem',
-                                                            cursor: 'pointer',
-                                                            color: textColor,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '0.5rem'
-                                                        }}
-                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
-                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
-                                                    >
-                                                        <span style={{ fontSize: '0.9rem' }}>{item.isHighlighted ? '★' : '☆'}</span>
-                                                        <span>{item.isHighlighted ? 'Unhighlight' : 'Highlight'}</span>
-                                                    </div>
-                                                    <div
-                                                        onClick={() => {
-                                                            initItemEdit(item);
-                                                            setOpenItemMenuId(null);
-                                                        }}
-                                                        style={{
-                                                            padding: '0.5rem 1rem',
-                                                            cursor: 'pointer',
-                                                            color: textColor,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '0.5rem'
-                                                        }}
-                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
-                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
-                                                    >
-                                                        <span style={{ fontSize: '0.9rem' }}>✏️</span>
-                                                        <span>Edit</span>
-                                                    </div>
-                                                    <div
-                                                        onClick={() => {
-                                                            handleDeleteItem(item._id);
-                                                            setOpenItemMenuId(null);
-                                                        }}
-                                                        style={{
-                                                            padding: '0.5rem 1rem',
-                                                            cursor: 'pointer',
-                                                            color: textColor,
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '0.5rem'
-                                                        }}
-                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
-                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
-                                                    >
-                                                        <span style={{ fontSize: '0.9rem' }}>🗑️</span>
-                                                        <span>Remove</span>
-                                                    </div>
-                                                </div>
-                                            )}
+                                                    border: `1px solid ${textColorLight}50`
+                                                }}
+                                                title="Edit"
+                                            >
+                                                Edit
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleDeleteItem(item._id)}
+                                                style={{
+                                                    backgroundColor: 'transparent',
+                                                    color: textColorLight,
+                                                    padding: '0.5rem 0.75rem',
+                                                    borderRadius: '0.25rem',
+                                                    border: `1px solid ${textColorLight}50`
+                                                }}
+                                                title="Remove"
+                                            >
+                                                Remove
+                                            </Button>
                                         </div>
                                     </div>
                                 ))}
@@ -1301,7 +1306,7 @@ const BucketsPage = () => {
                                 cursor: 'pointer'
                             }}
                         >
-                            Highlight this item
+                            Pin this item
                         </label>
                     </div>
                 </form>
@@ -1546,7 +1551,7 @@ const BucketsPage = () => {
                                 cursor: 'pointer'
                             }}
                         >
-                            Highlight this item
+                            Pin this item
                         </label>
                     </div>
                 </form>

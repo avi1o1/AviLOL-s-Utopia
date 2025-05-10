@@ -11,6 +11,7 @@ import ThemesPage from './pages/ThemesPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import PrivacyPage from './pages/PrivacyPage';
+import ExportDataPage from './pages/ExportDataPage';
 
 // Context
 import { ThemeProvider } from './context/ThemeContext';
@@ -120,6 +121,7 @@ function App() {
                   <Route path="/signup" element={<SignupPage setIsAuthenticated={setIsAuthenticated} />} />
                   <Route path="/themes" element={<ThemesPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/export" element={<ExportDataPage />} />
 
                   {/* Protected routes */}
                   <Route path="/diary" element={
@@ -147,8 +149,7 @@ function App() {
                   <p className="font-display">&copy; {currentYear} YouTopia</p>
                   <div className="footer-links">
                     <Link to="/privacy" className="footer-link">Privacy</Link>
-                    <a href="#export" className="footer-link">Export Data</a>
-                    <a href="#about" className="footer-link">About</a>
+                    <Link to="/export" className="footer-link">Export Data</Link>
                   </div>
                 </div>
               </div>

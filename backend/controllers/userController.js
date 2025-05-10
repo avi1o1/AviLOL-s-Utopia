@@ -76,6 +76,79 @@ const getUserProfile = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Export all user data (journals, diaries, buckets)
+// @route   GET /api/users/export
+// @access  Private
+const exportUserData = asyncHandler(async (req, res) => {
+    try {
+        // Get user data without password
+        const user = await User.findById(req.user._id).select('-password');
+
+        if (!user) {
+            res.status(404);
+            throw new Error('User not found');
+        }
+
+        // Get all the user's journals
+        const Journal = require('../models/journalModel');
+        const journals = await Journal.find({ user: req.user._id });
+
+        // Simplify journals data to only include essential textual content
+        const simplifiedJournals = journals.map(journal => ({
+            title: journal.title,
+            content: journal.content,
+            date: journal.date,
+        }));
+
+        // Get all the user's diary entries
+        const Diary = require('../models/diaryModel');
+        const diaries = await Diary.find({ user: req.user._id });
+
+        // Simplify diary data to only include essential textual content
+        const simplifiedDiaries = diaries.map(diary => ({
+            title: diary.title,
+            content: diary.content,
+            date: diary.date,
+        }));
+
+        // Get all the user's buckets with their items
+        const Bucket = require('../models/bucketModel');
+        const buckets = await Bucket.find({ user: req.user._id });
+
+        // Simplify bucket data to only include essential textual content
+        const simplifiedBuckets = buckets.map(bucket => ({
+            name: bucket.name,
+            description: bucket.description,
+            items: bucket.items.map(item => ({
+                content: item.content
+            }))
+        }));
+
+        // Compile all data - simplified version with only textual content
+        const exportData = {
+            user: {
+                username: user.username,
+                createdAt: user.createdAt
+            },
+            journals: simplifiedJournals,
+            diaries: simplifiedDiaries,
+            buckets: simplifiedBuckets
+        };
+
+        // Send as JSON
+        res.json({
+            success: true,
+            data: exportData,
+            timestamp: new Date(),
+            message: 'Data exported successfully'
+        });
+
+    } catch (error) {
+        res.status(500);
+        throw new Error(`Error exporting data: ${error.message}`);
+    }
+});
+
 // Generate JWT
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || 'your_jwt_secret', {
@@ -87,4 +160,5 @@ module.exports = {
     registerUser,
     loginUser,
     getUserProfile,
+    exportUserData
 };

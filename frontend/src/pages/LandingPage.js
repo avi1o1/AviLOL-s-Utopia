@@ -302,6 +302,46 @@ function LandingPage() {
                             marginTop: 'auto'
                         }}>Go to Themes</Link>
                     </Card>
+
+                    <Card className="dashboard-card" style={{
+                        borderColor: theme.primary,
+                        padding: '1.5rem',
+                        transition: 'all 0.2s ease',
+                        backgroundColor: 'white',
+                        border: `3px solid ${theme.primary}`,
+                        boxShadow: '5px 5px 0 rgba(0,0,0,0.2)',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}>
+                        <div style={{
+                            backgroundColor: theme.primary,
+                            width: '50px',
+                            height: '50px',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginBottom: '1rem',
+                            fontSize: '1.5rem',
+                            color: 'white'
+                        }}>💾</div>
+                        <h2 style={{ color: theme.primary, marginBottom: '0.75rem' }}>Export Data</h2>
+                        <p style={{ marginBottom: '1.5rem', flex: 1 }}>Download all your valuable data in JSON format. Keep your memories safe and portable.</p>
+                        <Link to="/export" className="dashboard-link" style={{
+                            backgroundColor: theme.primary,
+                            color: 'white',
+                            display: 'inline-block',
+                            padding: '0.5rem 1rem',
+                            textDecoration: 'none',
+                            fontWeight: 'bold',
+                            border: `2px solid ${theme.dark}`,
+                            boxShadow: '3px 3px 0 rgba(0,0,0,0.2)',
+                            transition: 'all 0.2s ease',
+                            textAlign: 'center',
+                            marginTop: 'auto'
+                        }}>Export Data</Link>
+                    </Card>
                 </div>
             </div>
         );
@@ -330,19 +370,6 @@ function LandingPage() {
                 zIndex: 0,
                 opacity: isDarkTheme ? 0.2 : 0.3 // Reduce opacity for dark themes
             }}>
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} style={{
-                        position: 'absolute',
-                        width: `${Math.random() * 200 + 50}px`,
-                        height: `${Math.random() * 200 + 50}px`,
-                        borderRadius: '50%',
-                        backgroundColor: `${theme[Object.keys(theme)[Math.floor(Math.random() * 5)]]}40`, // More opacity for better visibility
-                        border: isDarkTheme ? `1px solid ${theme.accent}30` : 'none', // Add subtle border in dark themes
-                        top: `${Math.random() * 100}%`,
-                        left: `${Math.random() * 100}%`,
-                        animation: `float ${Math.random() * 10 + 15}s infinite ease-in-out`,
-                    }} />
-                ))}
             </div>
 
             {/* Hero Section - More dynamic and product-focused */}
@@ -470,17 +497,6 @@ function LandingPage() {
                                 <div style={{ width: '90%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '4px' }}></div>
                                 <div style={{ width: '75%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '4px' }}></div>
                                 <div style={{ width: '85%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '4px' }}></div>
-
-                                {/* Animated cursor effect */}
-                                <div style={{
-                                    position: 'absolute',
-                                    width: '12px',
-                                    height: '24px',
-                                    backgroundColor: theme.primary,
-                                    bottom: '4rem',
-                                    left: '5rem',
-                                    animation: 'blink 1s infinite'
-                                }}></div>
                             </div>
                         </div>
 
@@ -496,7 +512,7 @@ function LandingPage() {
                             display: 'flex',
                             flexDirection: 'column'
                         }}>
-                            <h3 style={{ color: theme.secondary, marginBottom: '1rem', fontSize: '1.5rem' }}>Diary</h3>
+                            <h3 style={{ color: theme.primary, marginBottom: '1rem', fontSize: '1.5rem' }}>Diary</h3>
                             <div style={{
                                 flex: 1,
                                 backgroundColor: backgroundColorCard,
@@ -541,7 +557,7 @@ function LandingPage() {
                             display: 'flex',
                             flexDirection: 'column'
                         }}>
-                            <h3 style={{ color: theme.accent, marginBottom: '1rem', fontSize: '1.5rem' }}>Buckets</h3>
+                            <h3 style={{ color: theme.primary, marginBottom: '1rem', fontSize: '1.5rem' }}>Buckets</h3>
                             <div style={{
                                 flex: 1,
                                 backgroundColor: backgroundColorCard,
@@ -607,7 +623,7 @@ function LandingPage() {
                     maxWidth: '900px'
                 }}>
                     {[
-                        { name: "Alex", text: "I've tried many journaling apps, but YouTopia is different. It feels like it was made just for me." },
+                        { name: "unignoramus", text: "Quick, simple, and effective. Does its job well, and has theming options too!" },
                         { name: "Samira", text: "This app has become my daily companion. The themes are beautiful and the interface is so intuitive." },
                         { name: "Marco", text: "The privacy features give me peace of mind. I can finally write without worrying about my data." }
                     ].map((review, i) => (
@@ -669,6 +685,11 @@ function LandingPage() {
                             description: 'Personalize your experience with beautiful visual themes that match your style.'
                         },
                         {
+                            icon: '💾',
+                            title: 'Data Export',
+                            description: 'Download your content anytime in JSON format. Your data remains portable and always yours.'
+                        },
+                        {
                             icon: '🔒',
                             title: 'Privacy First',
                             description: 'Your data belongs to you alone. We prioritize security and privacy in everything we do.'
@@ -677,8 +698,8 @@ function LandingPage() {
                         <div key={i} style={{
                             padding: '2rem',
                             borderRadius: '12px',
-                            backgroundColor: isDarkTheme ? `${theme[Object.keys(theme)[i % 5]]}15` : `${theme[Object.keys(theme)[i % 5]]}10`,
-                            border: `2px solid ${theme[Object.keys(theme)[i % 5]]}`,
+                            backgroundColor: isDarkTheme ? theme.light + '20' : theme.light,
+                            border: `2px solid ${theme.primary}`,
                             transition: 'all 0.3s ease',
                             height: '100%'
                         }}>
