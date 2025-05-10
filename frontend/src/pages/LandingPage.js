@@ -21,7 +21,7 @@ function LandingPage() {
 
     // Animation for product showcases
     const [animationIndex, setAnimationIndex] = useState(0);
-    const showcases = ['journal', 'diary', 'buckets', 'media'];
+    const showcases = ['journal', 'diary', 'buckets'];
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -133,24 +133,6 @@ function LandingPage() {
                         <div>
                             <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '0.875rem', opacity: 0.7 }}>CAPTURE</h3>
                             <h2 style={{ margin: 0, fontSize: '1.5rem' }}>New Bucket</h2>
-                        </div>
-                    </Card>
-
-                    <Card style={{
-                        flex: '1',
-                        minWidth: '200px',
-                        padding: '1.25rem',
-                        borderColor: theme.accent,
-                        backgroundColor: theme.accent,
-                        color: theme.dark,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '1rem'
-                    }}>
-                        <div style={{ fontSize: '2.5rem' }}>🖼️</div>
-                        <div>
-                            <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '0.875rem', opacity: 0.7 }}>UPLOAD</h3>
-                            <h2 style={{ margin: 0, fontSize: '1.5rem' }}>New Media</h2>
                         </div>
                     </Card>
                 </div>
@@ -279,46 +261,6 @@ function LandingPage() {
                             textAlign: 'center',
                             marginTop: 'auto'
                         }}>Go to Buckets</Link>
-                    </Card>
-
-                    <Card className="dashboard-card" style={{
-                        borderColor: theme.primary,
-                        padding: '1.5rem',
-                        transition: 'all 0.2s ease',
-                        backgroundColor: 'white',
-                        border: `3px solid ${theme.primary}`,
-                        boxShadow: '5px 5px 0 rgba(0,0,0,0.2)',
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column'
-                    }}>
-                        <div style={{
-                            backgroundColor: theme.primary,
-                            width: '50px',
-                            height: '50px',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            marginBottom: '1rem',
-                            fontSize: '1.5rem',
-                            color: 'white'
-                        }}>🖼️</div>
-                        <h2 style={{ color: theme.primary, marginBottom: '0.75rem' }}>Media</h2>
-                        <p style={{ marginBottom: '1.5rem', flex: 1 }}>Store and organize your photos, videos, and other media. Your personal media library.</p>
-                        <Link to="/media" className="dashboard-link" style={{
-                            backgroundColor: theme.primary,
-                            color: 'white',
-                            display: 'inline-block',
-                            padding: '0.5rem 1rem',
-                            textDecoration: 'none',
-                            fontWeight: 'bold',
-                            border: `2px solid ${theme.dark}`,
-                            boxShadow: '3px 3px 0 rgba(0,0,0,0.2)',
-                            transition: 'all 0.2s ease',
-                            textAlign: 'center',
-                            marginTop: 'auto'
-                        }}>Go to Media</Link>
                     </Card>
 
                     <Card className="dashboard-card" style={{
@@ -628,41 +570,6 @@ function LandingPage() {
                                 ))}
                             </div>
                         </div>
-
-                        {/* Media Demo */}
-                        <div style={{
-                            flexShrink: 0,
-                            width: '100%',
-                            height: '100%',
-                            background: isDarkTheme
-                                ? `linear-gradient(135deg, ${theme.dark}, ${theme.light}15)`
-                                : `linear-gradient(135deg, ${theme.light}, ${theme.dark}20)`,
-                            padding: '2rem',
-                            display: 'flex',
-                            flexDirection: 'column'
-                        }}>
-                            <h3 style={{ color: isDarkTheme ? theme.light : theme.dark, marginBottom: '1rem', fontSize: '1.5rem' }}>Media</h3>
-                            <div style={{
-                                flex: 1,
-                                backgroundColor: isDarkTheme ? theme.light : theme.dark,
-                                borderRadius: '8px',
-                                padding: '1.5rem',
-                                boxShadow: isDarkTheme ? `0 5px 15px rgba(0,0,0,0.3)` : `0 5px 15px rgba(0,0,0,0.1)`,
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                                gap: '1rem',
-                                alignContent: 'flex-start'
-                            }}>
-                                {[...Array(9)].map((_, i) => (
-                                    <div key={i} style={{
-                                        aspectRatio: '1',
-                                        backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.1)',
-                                        borderRadius: '4px',
-                                        overflow: 'hidden'
-                                    }} />
-                                ))}
-                            </div>
-                        </div>
                     </div>
 
                     {/* Demo navigation dots */}
@@ -755,11 +662,6 @@ function LandingPage() {
                             icon: '✨',
                             title: 'Capture Buckets',
                             description: 'Save special memories and milestones in a dedicated space. Never forget life\'s highlights.'
-                        },
-                        {
-                            icon: '🖼️',
-                            title: 'Media Collection',
-                            description: 'Upload and organize photos and videos. Add context to your visual memories.'
                         },
                         {
                             icon: '🎨',

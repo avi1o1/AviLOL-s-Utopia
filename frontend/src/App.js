@@ -7,10 +7,10 @@ import LandingPage from './pages/LandingPage';
 import DiaryPage from './pages/DiaryPage';
 import JournalPage from './pages/JournalPage';
 import BucketsPage from './pages/BucketsPage';
-import MediaPage from './pages/MediaPage';
 import ThemesPage from './pages/ThemesPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import PrivacyPage from './pages/PrivacyPage';
 
 // Context
 import { ThemeProvider } from './context/ThemeContext';
@@ -81,11 +81,6 @@ function App() {
                       }>
                         Buckets
                       </NavLink>
-                      <NavLink to="/media" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      }>
-                        Media
-                      </NavLink>
                       <NavLink to="/themes" className={({ isActive }) =>
                         isActive ? "nav-link active" : "nav-link"
                       }>
@@ -124,6 +119,7 @@ function App() {
                   <Route path="/login" element={<LoginPage setIsAuthenticated={setIsAuthenticated} />} />
                   <Route path="/signup" element={<SignupPage setIsAuthenticated={setIsAuthenticated} />} />
                   <Route path="/themes" element={<ThemesPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
 
                   {/* Protected routes */}
                   <Route path="/diary" element={
@@ -141,11 +137,6 @@ function App() {
                       <BucketsPage />
                     </ProtectedRoute>
                   } />
-                  <Route path="/media" element={
-                    <ProtectedRoute>
-                      <MediaPage />
-                    </ProtectedRoute>
-                  } />
                 </Routes>
               </div>
             </main>
@@ -155,7 +146,7 @@ function App() {
                 <div className="footer-content">
                   <p className="font-display">&copy; {currentYear} YouTopia</p>
                   <div className="footer-links">
-                    <a href="#privacy" className="footer-link">Privacy</a>
+                    <Link to="/privacy" className="footer-link">Privacy</Link>
                     <a href="#export" className="footer-link">Export Data</a>
                     <a href="#about" className="footer-link">About</a>
                   </div>

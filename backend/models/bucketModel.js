@@ -38,6 +38,10 @@ const bucketSchema = mongoose.Schema({
         type: String,
         default: '#3498db', // Default color
     },
+    isHighlighted: {
+        type: Boolean,
+        default: false
+    },
     items: [bucketItemSchema],
 }, {
     timestamps: true,

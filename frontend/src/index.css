@@ -788,8 +788,7 @@ a:hover {
 /* App specific styles */
 .diary-page,
 .journal-page,
-.media-page,
-.moments-page,
+.buckets-page,
 .themes-page {
   max-width: 1200px;
   margin: 0 auto;

@@ -210,6 +210,32 @@ const deleteBucketItem = asyncHandler(async (req, res) => {
     res.status(200).json({ itemId });
 });
 
+// @desc    Toggle highlight flag for a bucket
+// @route   PUT /api/buckets/:id/highlight
+// @access  Private
+const toggleHighlightBucket = asyncHandler(async (req, res) => {
+    const bucket = await Bucket.findById(req.params.id);
+
+    if (!bucket) {
+        res.status(404);
+        throw new Error('Bucket not found');
+    }
+
+    // Check if the bucket belongs to the logged in user
+    if (bucket.user.toString() !== req.user.id) {
+        res.status(401);
+        throw new Error('Not authorized to update this bucket');
+    }
+
+    // Toggle the highlight flag
+    bucket.isHighlighted = !bucket.isHighlighted;
+
+    // Save the updated bucket
+    const updatedBucket = await bucket.save();
+
+    res.status(200).json(updatedBucket);
+});
+
 module.exports = {
     getBuckets,
     createBucket,
@@ -218,5 +244,6 @@ module.exports = {
     deleteBucket,
     addBucketItem,
     updateBucketItem,
-    deleteBucketItem
+    deleteBucketItem,
+    toggleHighlightBucket
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -21,19 +21,28 @@ const BucketsPage = () => {
     const [selectedBucket, setSelectedBucket] = useState(null);
     const [showAddBucketModal, setShowAddBucketModal] = useState(false);
     const [showAddItemModal, setShowAddItemModal] = useState(false);
+    const [showEditBucketModal, setShowEditBucketModal] = useState(false);
+    const [showEditItemModal, setShowEditItemModal] = useState(false);
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
+    const [openBucketMenuId, setOpenBucketMenuId] = useState(null);
+    const [openItemMenuId, setOpenItemMenuId] = useState(null);
+
+    // Ref for detecting clicks outside menus
+    const menuRef = useRef(null);
 
     // Form states
     const [newBucket, setNewBucket] = useState({
         name: '',
         description: '',
         icon: '📝',
-        color: theme.primary
+        color: '#3498db' // Default blue
     });
+    const [editingBucket, setEditingBucket] = useState(null);
     const [newItem, setNewItem] = useState({
         content: '',
         isHighlighted: false
     });
+    const [editingItem, setEditingItem] = useState(null);
 
     // Check if the current theme is a dark theme
     const isDarkTheme = ['nightOwl', 'darkRoast', 'obsidian', 'darkForest'].includes(currentTheme);
@@ -45,6 +54,162 @@ const BucketsPage = () => {
     useEffect(() => {
         fetchBuckets();
     }, []);
+
+    // Handle clicks outside the menu
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setOpenBucketMenuId(null);
+                setOpenItemMenuId(null);
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
+
+    // Function to initialize bucket editing
+    const initBucketEdit = (bucket) => {
+        setEditingBucket({
+            id: bucket._id,
+            name: bucket.name,
+            description: bucket.description || '',
+            icon: bucket.icon,
+            color: bucket.color
+        });
+        setShowEditBucketModal(true);
+    };
+
+    // Function to initialize item editing
+    const initItemEdit = (item) => {
+        setEditingItem({
+            id: item._id,
+            content: item.content,
+            isHighlighted: item.isHighlighted || false
+        });
+        setShowEditItemModal(true);
+    };
+
+    // Function to update a bucket
+    const handleUpdateBucket = async (e) => {
+        e.preventDefault();
+
+        if (!editingBucket.name.trim()) {
+            showNotification('Please enter a bucket name', 'error');
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('userToken');
+
+            if (!token) {
+                showNotification('You must be logged in to update buckets', 'error');
+                return;
+            }
+
+            const response = await fetch(`${API_BASE_URL}/buckets/${editingBucket.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    name: editingBucket.name,
+                    description: editingBucket.description,
+                    icon: editingBucket.icon,
+                    color: editingBucket.color
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Error updating bucket');
+            }
+
+            // Update buckets in state
+            const updatedBuckets = buckets.map(bucket =>
+                bucket._id === editingBucket.id ? data : bucket
+            );
+
+            setBuckets(updatedBuckets);
+
+            // If this was the selected bucket, update that too
+            if (selectedBucket && selectedBucket._id === editingBucket.id) {
+                setSelectedBucket(data);
+            }
+
+            setShowEditBucketModal(false);
+            showNotification('Bucket updated successfully!', 'success');
+        } catch (err) {
+            console.error('Error updating bucket:', err);
+            showNotification(err.message, 'error');
+        }
+    };
+
+    // Function to update an item
+    const handleUpdateItem = async (e) => {
+        e.preventDefault();
+
+        if (!editingItem.content.trim()) {
+            showNotification('Please enter content for the item', 'error');
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('userToken');
+
+            const response = await fetch(`${API_BASE_URL}/buckets/${selectedBucket._id}/items/${editingItem.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    content: editingItem.content,
+                    isHighlighted: editingItem.isHighlighted
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Error updating item');
+            }
+
+            // Update the local state with the updated item
+            const updatedBuckets = buckets.map(bucket => {
+                if (bucket._id === selectedBucket._id) {
+                    return {
+                        ...bucket,
+                        items: bucket.items.map(item =>
+                            item._id === editingItem.id ? data : item
+                        )
+                    };
+                }
+                return bucket;
+            });
+
+            setBuckets(updatedBuckets);
+
+            // Also update the selected bucket if it's open
+            if (selectedBucket) {
+                setSelectedBucket({
+                    ...selectedBucket,
+                    items: selectedBucket.items.map(item =>
+                        item._id === editingItem.id ? data : item
+                    )
+                });
+            }
+
+            setShowEditItemModal(false);
+            showNotification('Item updated successfully!', 'success');
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    };
 
     // Function to fetch all buckets
     const fetchBuckets = async () => {
@@ -116,7 +281,7 @@ const BucketsPage = () => {
             }
 
             setBuckets([...buckets, data]);
-            setNewBucket({ name: '', description: '', icon: '📝', color: theme.primary });
+            setNewBucket({ name: '', description: '', icon: '📝', color: '#3498db' });
             setShowAddBucketModal(false);
             showNotification('Bucket created successfully!', 'success');
         } catch (err) {
@@ -312,6 +477,45 @@ const BucketsPage = () => {
         }
     };
 
+    // Toggle highlighting of a bucket
+    const toggleHighlightBucket = async (bucketId, currentHighlightState) => {
+        try {
+            const token = localStorage.getItem('userToken');
+
+            const response = await fetch(`${API_BASE_URL}/buckets/${bucketId}/highlight`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Error updating bucket');
+            }
+
+            const data = await response.json();
+
+            // Update the buckets list
+            const updatedBuckets = buckets.map(bucket =>
+                bucket._id === bucketId ? { ...bucket, isHighlighted: data.isHighlighted } : bucket
+            );
+
+            setBuckets(updatedBuckets);
+
+            // Also update the selected bucket if this was it
+            if (selectedBucket && selectedBucket._id === bucketId) {
+                setSelectedBucket({
+                    ...selectedBucket,
+                    isHighlighted: data.isHighlighted
+                });
+            }
+        } catch (err) {
+            showNotification(err.message, 'error');
+        }
+    };
+
     // Helper function to show notifications
     const showNotification = (message, type) => {
         setNotification({
@@ -329,25 +533,43 @@ const BucketsPage = () => {
     // Determine text and background colors based on theme
     const textColor = isDarkTheme ? theme.text : theme.dark;
     const textColorLight = isDarkTheme ? theme.textLight : theme.text;
+    const secondaryTextColor = isDarkTheme ? theme.textLight : theme.text;
     const backgroundColorMain = isDarkTheme ? theme.dark : theme.light;
     const backgroundColorCard = isDarkTheme ? theme.light : 'white';
 
     if (loading) {
         return (
-            <div className="buckets-page" style={{ color: textColor, padding: '2rem', textAlign: 'center' }}>
-                <h2>Loading buckets...</h2>
+            <div className="buckets-page" style={{ color: textColor }}>
+                <div className="page-header" style={{ borderBottom: `3px solid ${theme.primary}`, marginBottom: '2rem', paddingBottom: '1rem' }}>
+                    <div>
+                        <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>My Buckets</h1>
+                        <p style={{ color: secondaryTextColor }}>Loading your buckets...</p>
+                    </div>
+                </div>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div className="buckets-page" style={{ color: textColor, padding: '2rem', textAlign: 'center' }}>
-                <h2>Error</h2>
-                <p>{error}</p>
+            <div className="buckets-page" style={{ color: textColor }}>
+                <div className="page-header" style={{ borderBottom: `3px solid ${theme.primary}`, marginBottom: '2rem', paddingBottom: '1rem' }}>
+                    <div>
+                        <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>My Buckets</h1>
+                        <p style={{ color: 'var(--color-error)' }}>{error}</p>
+                    </div>
+                </div>
                 <Button
                     onClick={() => fetchBuckets()}
-                    style={{ backgroundColor: theme.primary, color: 'white' }}
+                    style={{
+                        backgroundColor: theme.primary,
+                        color: 'white',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '0.5rem',
+                        fontWeight: 'bold',
+                        border: `2px solid ${theme.dark}`,
+                        boxShadow: '3px 3px 0 rgba(0,0,0,0.2)'
+                    }}
                 >
                     Try Again
                 </Button>
@@ -443,10 +665,8 @@ const BucketsPage = () => {
 
             {/* Main content layout - side by side buckets and items */}
             <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-                {/* Buckets list - always visible */}
+                {/* Buckets list */}
                 <div style={{ flex: '1', minWidth: '280px' }}>
-                    {buckets.length > 0 && <h2 style={{ marginBottom: '1rem', color: theme.primary }}>Your Buckets</h2>}
-
                     <div style={{
                         display: 'grid',
                         gap: '1rem',
@@ -477,6 +697,9 @@ const BucketsPage = () => {
                                         <div style={{
                                             width: '40px',
                                             height: '40px',
+                                            minWidth: '40px',
+                                            minHeight: '40px',
+                                            flexShrink: 0,
                                             borderRadius: '50%',
                                             backgroundColor: bucket.color || theme.primary,
                                             display: 'flex',
@@ -496,21 +719,104 @@ const BucketsPage = () => {
                                         </h3>
                                     </div>
 
-                                    <Button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteBucket(bucket._id);
-                                        }}
-                                        style={{
-                                            backgroundColor: 'transparent',
-                                            color: textColorLight,
-                                            padding: '0.25rem 0.5rem',
-                                            opacity: 0.7,
-                                            fontSize: '0.9rem'
-                                        }}
-                                    >
-                                        Delete
-                                    </Button>
+                                    <div ref={menuRef} style={{ position: 'relative' }}>
+                                        <Button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOpenBucketMenuId(openBucketMenuId === bucket._id ? null : bucket._id);
+                                                setOpenItemMenuId(null); // Close any open item menus
+                                            }}
+                                            style={{
+                                                backgroundColor: 'transparent',
+                                                color: textColorLight,
+                                                padding: '0.25rem',
+                                                fontSize: '1.2rem',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                width: '40px',
+                                                height: '40px'
+                                            }}
+                                        >
+                                            ⋮
+                                        </Button>
+
+                                        {openBucketMenuId === bucket._id && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                right: 0,
+                                                top: '100%',
+                                                backgroundColor: backgroundColorCard,
+                                                border: `1px solid ${textColorLight}30`,
+                                                borderRadius: '0.25rem',
+                                                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                                zIndex: 10,
+                                                minWidth: '140px'
+                                            }}>
+                                                <div
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        toggleHighlightBucket(bucket._id, bucket.isHighlighted);
+                                                        setOpenBucketMenuId(null);
+                                                    }}
+                                                    style={{
+                                                        padding: '0.5rem 1rem',
+                                                        cursor: 'pointer',
+                                                        color: textColor,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.5rem'
+                                                    }}
+                                                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                >
+                                                    <span style={{ fontSize: '0.9rem' }}>{bucket.isHighlighted ? '★' : '☆'}</span>
+                                                    <span>{bucket.isHighlighted ? 'Unhighlight' : 'Highlight'}</span>
+                                                </div>
+                                                <div
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        initBucketEdit(bucket);
+                                                        setOpenBucketMenuId(null);
+                                                    }}
+                                                    style={{
+                                                        padding: '0.5rem 1rem',
+                                                        cursor: 'pointer',
+                                                        color: textColor,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.5rem',
+                                                        transition: 'background-color 0.2s'
+                                                    }}
+                                                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                >
+                                                    <span style={{ fontSize: '0.9rem' }}>✏️</span>
+                                                    <span>Edit</span>
+                                                </div>
+                                                <div
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteBucket(bucket._id);
+                                                        setOpenBucketMenuId(null);
+                                                    }}
+                                                    style={{
+                                                        padding: '0.5rem 1rem',
+                                                        cursor: 'pointer',
+                                                        color: textColor,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '0.5rem'
+                                                    }}
+                                                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                >
+                                                    <span style={{ fontSize: '0.9rem' }}>🗑️</span>
+                                                    <span>Remove</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 {bucket.description && (
@@ -557,6 +863,9 @@ const BucketsPage = () => {
                                 <div style={{
                                     width: '48px',
                                     height: '48px',
+                                    minWidth: '48px',
+                                    minHeight: '48px',
+                                    flexShrink: 0,
                                     borderRadius: '50%',
                                     backgroundColor: selectedBucket.color || theme.primary,
                                     display: 'flex',
@@ -595,7 +904,7 @@ const BucketsPage = () => {
                                     boxShadow: '2px 2px 0 rgba(0,0,0,0.1)'
                                 }}
                             >
-                                Add Item
+                                Add New Item
                             </Button>
                         </div>
 
@@ -652,31 +961,98 @@ const BucketsPage = () => {
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <div ref={menuRef} style={{ position: 'relative' }}>
                                             <Button
-                                                onClick={() => toggleHighlightItem(item._id, item.isHighlighted)}
-                                                style={{
-                                                    backgroundColor: 'transparent',
-                                                    color: item.isHighlighted ? selectedBucket.color || theme.primary : textColorLight,
-                                                    padding: '0.25rem 0.5rem',
-                                                    fontSize: '1.1rem'
+                                                onClick={() => {
+                                                    setOpenItemMenuId(openItemMenuId === item._id ? null : item._id);
+                                                    setOpenBucketMenuId(null); // Close any open bucket menus
                                                 }}
-                                            >
-                                                {item.isHighlighted ? '★' : '☆'}
-                                            </Button>
-
-                                            <Button
-                                                onClick={() => handleDeleteItem(item._id)}
                                                 style={{
                                                     backgroundColor: 'transparent',
                                                     color: textColorLight,
-                                                    padding: '0.25rem 0.5rem',
-                                                    opacity: 0.7,
-                                                    fontSize: '0.9rem'
+                                                    padding: '0.25rem',
+                                                    fontSize: '1.2rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: '40px',
+                                                    height: '40px'
                                                 }}
                                             >
-                                                Remove
+                                                ⋮
                                             </Button>
+
+                                            {openItemMenuId === item._id && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    right: 0,
+                                                    top: '100%',
+                                                    backgroundColor: backgroundColorCard,
+                                                    border: `1px solid ${textColorLight}30`,
+                                                    borderRadius: '0.25rem',
+                                                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                                    zIndex: 10,
+                                                    minWidth: '140px'
+                                                }}>
+                                                    <div
+                                                        onClick={() => {
+                                                            toggleHighlightItem(item._id, item.isHighlighted);
+                                                            setOpenItemMenuId(null);
+                                                        }}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            cursor: 'pointer',
+                                                            color: textColor,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.5rem'
+                                                        }}
+                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                    >
+                                                        <span style={{ fontSize: '0.9rem' }}>{item.isHighlighted ? '★' : '☆'}</span>
+                                                        <span>{item.isHighlighted ? 'Unhighlight' : 'Highlight'}</span>
+                                                    </div>
+                                                    <div
+                                                        onClick={() => {
+                                                            initItemEdit(item);
+                                                            setOpenItemMenuId(null);
+                                                        }}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            cursor: 'pointer',
+                                                            color: textColor,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.5rem'
+                                                        }}
+                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                    >
+                                                        <span style={{ fontSize: '0.9rem' }}>✏️</span>
+                                                        <span>Edit</span>
+                                                    </div>
+                                                    <div
+                                                        onClick={() => {
+                                                            handleDeleteItem(item._id);
+                                                            setOpenItemMenuId(null);
+                                                        }}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            cursor: 'pointer',
+                                                            color: textColor,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.5rem'
+                                                        }}
+                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                    >
+                                                        <span style={{ fontSize: '0.9rem' }}>🗑️</span>
+                                                        <span>Remove</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -803,24 +1179,58 @@ const BucketsPage = () => {
                         <div style={{
                             display: 'flex',
                             flexWrap: 'wrap',
-                            gap: '0.5rem'
+                            gap: '0.75rem'
                         }}>
-                            {Object.keys(theme).filter(key => ['primary', 'secondary', 'accent', 'dark', 'light'].includes(key)).map(colorKey => (
+                            {/* Predefined colors */}
+                            {['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22'].map(color => (
                                 <button
-                                    key={colorKey}
+                                    key={color}
                                     type="button"
-                                    onClick={() => setNewBucket({ ...newBucket, color: theme[colorKey] })}
+                                    onClick={() => setNewBucket({ ...newBucket, color })}
                                     style={{
                                         width: '40px',
                                         height: '40px',
                                         borderRadius: '50%',
-                                        backgroundColor: theme[colorKey],
-                                        border: theme[colorKey] === newBucket.color ? '3px solid white' : '3px solid transparent',
-                                        boxShadow: theme[colorKey] === newBucket.color ? '0 0 0 2px black' : 'none',
+                                        backgroundColor: color,
+                                        border: color === newBucket.color ? '3px solid white' : '3px solid transparent',
+                                        boxShadow: color === newBucket.color ? '0 0 0 2px black' : 'none',
                                         cursor: 'pointer'
                                     }}
+                                    aria-label={`Select color ${color}`}
                                 />
                             ))}
+
+                            {/* Color picker button with plus sign */}
+                            <label
+                                htmlFor="custom-color-picker"
+                                style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '50%',
+                                    backgroundColor: theme.light,
+                                    border: '2px dashed ' + theme.gray,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    fontSize: '1.5rem',
+                                    color: theme.gray
+                                }}
+                            >
+                                +
+                                <input
+                                    id="custom-color-picker"
+                                    type="color"
+                                    onChange={(e) => setNewBucket({ ...newBucket, color: e.target.value })}
+                                    style={{
+                                        opacity: 0,
+                                        position: 'absolute',
+                                        width: '1px',
+                                        height: '1px',
+                                        padding: 0
+                                    }}
+                                />
+                            </label>
                         </div>
                     </div>
                 </form>
@@ -863,9 +1273,9 @@ const BucketsPage = () => {
                             value={newItem.content}
                             onChange={(e) => setNewItem({ ...newItem, content: e.target.value })}
                             placeholder={`e.g. ${selectedBucket?.icon === '🎬' ? 'The Shawshank Redemption' :
-                                    selectedBucket?.icon === '📚' ? 'The Alchemist' :
-                                        selectedBucket?.icon === '✈️' ? 'Paris, France' :
-                                            'Item content'
+                                selectedBucket?.icon === '📚' ? 'The Alchemist' :
+                                    selectedBucket?.icon === '✈️' ? 'Paris, France' :
+                                        'Item content'
                                 }`}
                             required
                             style={{ width: '100%' }}
@@ -886,6 +1296,251 @@ const BucketsPage = () => {
                         />
                         <label
                             htmlFor="itemHighlight"
+                            style={{
+                                color: textColor,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Highlight this item
+                        </label>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Edit Bucket Modal */}
+            <Modal
+                show={showEditBucketModal}
+                onClose={() => setShowEditBucketModal(false)}
+                title="Edit Bucket"
+                confirmText="Update Bucket"
+                onConfirm={handleUpdateBucket}
+                styles={{
+                    overlay: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)'
+                    },
+                    modal: {
+                        backgroundColor: backgroundColorCard,
+                        color: textColor,
+                        width: '90%',
+                        maxWidth: '500px'
+                    }
+                }}
+            >
+                <form id="editBucketForm">
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <label
+                            htmlFor="editBucketName"
+                            style={{
+                                display: 'block',
+                                marginBottom: '0.5rem',
+                                color: textColor,
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Bucket Name *
+                        </label>
+                        <Input
+                            id="editBucketName"
+                            value={editingBucket?.name || ''}
+                            onChange={(e) => setEditingBucket({ ...editingBucket, name: e.target.value })}
+                            placeholder="e.g. Favorite Movies, Books to Read"
+                            required
+                            style={{ width: '100%' }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <label
+                            htmlFor="editBucketDescription"
+                            style={{
+                                display: 'block',
+                                marginBottom: '0.5rem',
+                                color: textColor,
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Description (Optional)
+                        </label>
+                        <Input
+                            id="editBucketDescription"
+                            value={editingBucket?.description || ''}
+                            onChange={(e) => setEditingBucket({ ...editingBucket, description: e.target.value })}
+                            placeholder="What is this bucket for?"
+                            style={{ width: '100%' }}
+                        />
+                    </div>
+
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <label
+                            style={{
+                                display: 'block',
+                                marginBottom: '0.75rem',
+                                color: textColor,
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Bucket Icon
+                        </label>
+                        <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '0.5rem'
+                        }}>
+                            {bucketIcons.map(icon => (
+                                <button
+                                    key={icon}
+                                    type="button"
+                                    onClick={() => setEditingBucket({ ...editingBucket, icon })}
+                                    style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '50%',
+                                        border: icon === editingBucket?.icon ? `2px solid ${theme.primary}` : '2px solid transparent',
+                                        backgroundColor: icon === editingBucket?.icon ? `${theme.primary}20` : backgroundColorMain,
+                                        fontSize: '1.25rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {icon}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div style={{ marginBottom: '1.5rem' }}>
+                        <label
+                            style={{
+                                display: 'block',
+                                marginBottom: '0.75rem',
+                                color: textColor,
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Bucket Color
+                        </label>
+                        <div style={{
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: '0.75rem'
+                        }}>
+                            {/* Predefined colors */}
+                            {['#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6', '#e67e22'].map(color => (
+                                <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => setEditingBucket({ ...editingBucket, color })}
+                                    style={{
+                                        width: '40px',
+                                        height: '40px',
+                                        borderRadius: '50%',
+                                        backgroundColor: color,
+                                        border: color === editingBucket?.color ? '3px solid white' : '3px solid transparent',
+                                        boxShadow: color === editingBucket?.color ? '0 0 0 2px black' : 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                    aria-label={`Select color ${color}`}
+                                />
+                            ))}
+
+                            {/* Color picker button with plus sign */}
+                            <label
+                                htmlFor="edit-custom-color-picker"
+                                style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '50%',
+                                    backgroundColor: theme.light,
+                                    border: '2px dashed ' + theme.gray,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    fontSize: '1.5rem',
+                                    color: theme.gray
+                                }}
+                            >
+                                +
+                                <input
+                                    id="edit-custom-color-picker"
+                                    type="color"
+                                    onChange={(e) => setEditingBucket({ ...editingBucket, color: e.target.value })}
+                                    style={{
+                                        opacity: 0,
+                                        position: 'absolute',
+                                        width: '1px',
+                                        height: '1px',
+                                        padding: 0
+                                    }}
+                                />
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Edit Item Modal */}
+            <Modal
+                show={showEditItemModal && selectedBucket !== null}
+                onClose={() => setShowEditItemModal(false)}
+                title={`Edit Item in ${selectedBucket?.name || 'Bucket'}`}
+                confirmText="Update Item"
+                onConfirm={handleUpdateItem}
+                styles={{
+                    overlay: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)'
+                    },
+                    modal: {
+                        backgroundColor: backgroundColorCard,
+                        color: textColor,
+                        width: '90%',
+                        maxWidth: '500px'
+                    }
+                }}
+            >
+                <form id="editItemForm">
+                    <div style={{ marginBottom: '1.25rem' }}>
+                        <label
+                            htmlFor="editItemContent"
+                            style={{
+                                display: 'block',
+                                marginBottom: '0.5rem',
+                                color: textColor,
+                                fontWeight: 'bold'
+                            }}
+                        >
+                            Item Content *
+                        </label>
+                        <Textarea
+                            id="editItemContent"
+                            value={editingItem?.content || ''}
+                            onChange={(e) => setEditingItem({ ...editingItem, content: e.target.value })}
+                            placeholder={`e.g. ${selectedBucket?.icon === '🎬' ? 'The Shawshank Redemption' :
+                                selectedBucket?.icon === '📚' ? 'The Alchemist' :
+                                    selectedBucket?.icon === '✈️' ? 'Paris, France' :
+                                        'Item content'
+                                }`}
+                            required
+                            style={{ width: '100%' }}
+                        />
+                    </div>
+
+                    <div style={{
+                        marginBottom: '0.5rem',
+                        display: 'flex',
+                        alignItems: 'center'
+                    }}>
+                        <input
+                            id="editItemHighlight"
+                            type="checkbox"
+                            checked={editingItem?.isHighlighted || false}
+                            onChange={(e) => setEditingItem({ ...editingItem, isHighlighted: e.target.checked })}
+                            style={{ marginRight: '0.5rem' }}
+                        />
+                        <label
+                            htmlFor="editItemHighlight"
                             style={{
                                 color: textColor,
                                 cursor: 'pointer'

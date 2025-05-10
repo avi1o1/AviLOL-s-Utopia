@@ -34,7 +34,8 @@ const safeFormat = (date, formatStr) => {
 
 const JournalPage = () => {
   // eslint-disable-next-line no-unused-vars
-  const { currentTheme } = useTheme();
+  const { currentTheme, themes } = useTheme();
+  const theme = themes[currentTheme];
 
   // Check if the current theme is a dark theme
   const isDarkTheme = ['nightOwl', 'darkRoast', 'obsidian', 'darkForest'].includes(currentTheme);
@@ -427,9 +428,13 @@ const JournalPage = () => {
   if (loading && entries.length === 0) {
     return (
       <div className="journal-page" style={{ color: textColor }}>
-        <div className="page-header">
-          <h1 className="text-3xl font-display" style={{ color: headingColor }}>My Journal</h1>
-          <p style={{ color: secondaryTextColor }}>Loading your entries...</p>
+        <div>
+          <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+            My Journal
+          </h1>
+          <p className="mb-6" style={{ color: secondaryTextColor }}>
+            Loading your entries...
+          </p>
         </div>
       </div>
     );
@@ -440,8 +445,12 @@ const JournalPage = () => {
     return (
       <div className="journal-page" style={{ color: textColor }}>
         <div className="page-header">
-          <h1 className="text-3xl font-display" style={{ color: headingColor }}>My Journal</h1>
-          <p style={{ color: 'var(--color-error)' }}>{error}</p>
+          <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+            My Journal
+          </h1>
+          <p className="mb-6" style={{ color: 'var(--color-error)' }}>
+            {error}
+          </p>
         </div>
       </div>
     );
@@ -449,24 +458,34 @@ const JournalPage = () => {
 
   return (
     <div className="journal-page" style={{ color: textColor }}>
-      <div className="flex justify-between items-center mb-4 page-header">
-        <div>
-          <h1 className="text-3xl font-display" style={{ color: headingColor }}>My Journal</h1>
-          <p style={{ color: secondaryTextColor }}>A place to record your thoughts, experiences, reflections and more!</p>
+      <div className="page-header" style={{ borderBottom: `3px solid ${theme.primary}`, marginBottom: '2rem', paddingBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+              My Journal
+            </h1>
+            <p className="mb-6" style={{ color: secondaryTextColor }}>
+              A place to record your thoughts, experiences, reflections and more!
+            </p>
+          </div>
+
+          {!showEntryForm && (
+            <Button
+              onClick={() => setShowEntryForm(true)}
+              style={{
+                backgroundColor: theme.primary,
+                color: 'white',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '0.5rem',
+                fontWeight: 'bold',
+                border: `2px solid ${theme.dark}`,
+                boxShadow: '3px 3px 0 rgba(0,0,0,0.2)'
+              }}
+            >
+              Add New Entry
+            </Button>
+          )}
         </div>
-        {!showEntryForm && (
-          <Button
-            onClick={() => setShowEntryForm(true)}
-            variant="primary"
-            style={{
-              backgroundColor: 'var(--color-primary)',
-              color: 'white',
-              border: 'none'
-            }}
-          >
-            Add New Entry
-          </Button>
-        )}
       </div>
 
       {viewMode === 'list' && (

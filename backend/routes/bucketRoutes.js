@@ -8,7 +8,8 @@ const {
     deleteBucket,
     addBucketItem,
     updateBucketItem,
-    deleteBucketItem
+    deleteBucketItem,
+    toggleHighlightBucket
 } = require('../controllers/bucketController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -23,6 +24,10 @@ router.route('/:id')
     .get(protect, getBucket)
     .put(protect, updateBucket)
     .delete(protect, deleteBucket);
+
+// Toggle highlight for a bucket
+router.route('/:id/highlight')
+    .put(protect, toggleHighlightBucket);
 
 // Add item to a bucket
 router.route('/:id/items')
