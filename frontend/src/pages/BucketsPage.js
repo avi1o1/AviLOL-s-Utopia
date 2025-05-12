@@ -22,6 +22,8 @@ const BucketsPage = () => {
     const [showAddItemModal, setShowAddItemModal] = useState(false);
     const [showEditBucketModal, setShowEditBucketModal] = useState(false);
     const [showEditItemModal, setShowEditItemModal] = useState(false);
+    const [showDeleteBucketModal, setShowDeleteBucketModal] = useState(false);
+    const [bucketToDelete, setBucketToDelete] = useState(null);
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
     const [openBucketMenuId, setOpenBucketMenuId] = useState(null);
 
@@ -42,8 +44,12 @@ const BucketsPage = () => {
     });
     const [editingItem, setEditingItem] = useState(null);
 
-    // Check if the current theme is a dark theme
-    const isDarkTheme = ['nightOwl', 'darkRoast', 'obsidian', 'darkForest'].includes(currentTheme);
+    // Determine if the current theme is a dark theme by checking its text color
+    // Dark themes typically have light text colors (#F... or rgb values > 200)
+    const isDarkTheme = theme.text.startsWith('#F') || theme.text.startsWith('#f') ||
+        theme.text.startsWith('#E') || theme.text.startsWith('#e') ||
+        theme.text === '#FAFAFA' || theme.text === '#F5F5F4' || theme.text === '#F9FAFB' ||
+        theme.text === '#F8FAFC';
 
     // Collection of possible bucket icons
     const bucketIcons = ['📝', '🎬', '📚', '🎵', '🍔', '✈️', '💡', '🎮', '📷', '🏆'];
@@ -240,13 +246,8 @@ const BucketsPage = () => {
     const fetchBuckets = useCallback(async () => {
         try {
             setLoading(true);
+            setError(null);
             const token = localStorage.getItem('userToken');
-
-            if (!token) {
-                setError('Authentication required');
-                setLoading(false);
-                return;
-            }
 
             const response = await fetch(`${API_URL}/buckets`, {
                 headers: {
@@ -254,24 +255,17 @@ const BucketsPage = () => {
                 },
             });
 
-            const data = await response.json();
-
             if (!response.ok) {
-                throw new Error(data.message || 'Error fetching buckets');
+                throw new Error('Failed to fetch buckets');
             }
 
-            // Ensure all buckets have items array initialized
-            const bucketsWithItems = data.map(bucket => ({
-                ...bucket,
-                items: bucket.items || []
-            }));
-
+            const data = await response.json();
             // Sort buckets with pinned at top
-            const sortedBuckets = sortBucketsWithPinnedAtTop(bucketsWithItems);
+            const sortedBuckets = sortBucketsWithPinnedAtTop(data);
             setBuckets(sortedBuckets);
-            setLoading(false);
         } catch (err) {
             setError(err.message);
+        } finally {
             setLoading(false);
         }
     }, []);
@@ -387,14 +381,18 @@ const BucketsPage = () => {
 
     // Function to delete a bucket
     const handleDeleteBucket = async (bucketId) => {
-        if (!window.confirm('Are you sure you want to delete this bucket? All items will be lost.')) {
-            return;
-        }
+        setBucketToDelete(bucketId);
+        setShowDeleteBucketModal(true);
+    };
+
+    // Function to confirm and execute bucket deletion
+    const confirmDeleteBucket = async () => {
+        if (!bucketToDelete) return;
 
         try {
             const token = localStorage.getItem('userToken');
 
-            const response = await fetch(`${API_URL}/buckets/${bucketId}`, {
+            const response = await fetch(`${API_URL}/buckets/${bucketToDelete}`, {
                 method: 'DELETE',
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -407,13 +405,14 @@ const BucketsPage = () => {
             }
 
             // Remove the bucket from state
-            setBuckets(buckets.filter(bucket => bucket._id !== bucketId));
+            setBuckets(buckets.filter(bucket => bucket._id !== bucketToDelete));
 
             // If the deleted bucket was selected, clear the selection
-            if (selectedBucket && selectedBucket._id === bucketId) {
+            if (selectedBucket && selectedBucket._id === bucketToDelete) {
                 setSelectedBucket(null);
             }
 
+            setShowDeleteBucketModal(false);
             showNotification('Bucket deleted successfully', 'success');
         } catch (err) {
             showNotification(err.message, 'error');
@@ -581,8 +580,7 @@ const BucketsPage = () => {
     const textColor = isDarkTheme ? theme.text : theme.dark;
     const textColorLight = isDarkTheme ? theme.textLight : theme.text;
     const secondaryTextColor = isDarkTheme ? theme.textLight : theme.text;
-    const backgroundColorMain = isDarkTheme ? theme.dark : theme.light;
-    const backgroundColorCard = isDarkTheme ? theme.light : 'white';
+    const backgroundColorCard = isDarkTheme ? theme.dark : theme.light;
 
     if (loading) {
         return (
@@ -722,7 +720,18 @@ const BucketsPage = () => {
                         {buckets.map(bucket => (
                             <Card
                                 key={bucket._id}
-                                onClick={() => setSelectedBucket(bucket)}
+                                onClick={() => {
+                                    // Apply sorting to items when selecting a bucket
+                                    if (bucket.items && bucket.items.length > 0) {
+                                        const sortedItems = sortItemsWithPinnedAtTop([...bucket.items]);
+                                        setSelectedBucket({
+                                            ...bucket,
+                                            items: sortedItems
+                                        });
+                                    } else {
+                                        setSelectedBucket(bucket);
+                                    }
+                                }}
                                 style={{
                                     padding: '1.25rem',
                                     cursor: 'pointer',
@@ -870,17 +879,6 @@ const BucketsPage = () => {
                                         )}
                                     </div>
                                 </div>
-
-                                {bucket.description && (
-                                    <p style={{
-                                        marginTop: '0.75rem',
-                                        fontSize: '0.9rem',
-                                        color: textColorLight,
-                                        marginBottom: '0.5rem'
-                                    }}>
-                                        {bucket.description}
-                                    </p>
-                                )}
 
                                 <div style={{
                                     marginTop: '0.75rem',
@@ -1156,7 +1154,7 @@ const BucketsPage = () => {
                                         height: '40px',
                                         borderRadius: '50%',
                                         border: icon === newBucket.icon ? `2px solid ${theme.primary}` : '2px solid transparent',
-                                        backgroundColor: icon === newBucket.icon ? `${theme.primary}20` : backgroundColorMain,
+                                        backgroundColor: icon === newBucket.icon ? `${theme.primary}20` : backgroundColorCard,
                                         fontSize: '1.25rem',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1401,7 +1399,7 @@ const BucketsPage = () => {
                                         height: '40px',
                                         borderRadius: '50%',
                                         border: icon === editingBucket?.icon ? `2px solid ${theme.primary}` : '2px solid transparent',
-                                        backgroundColor: icon === editingBucket?.icon ? `${theme.primary}20` : backgroundColorMain,
+                                        backgroundColor: icon === editingBucket?.icon ? `${theme.primary}20` : backgroundColorCard,
                                         fontSize: '1.25rem',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1557,13 +1555,53 @@ const BucketsPage = () => {
                 </form>
             </Modal>
 
+            {/* Delete Bucket Confirmation Modal */}
+            <Modal
+                show={showDeleteBucketModal}
+                onClose={() => setShowDeleteBucketModal(false)}
+                title="Confirm Deletion"
+                confirmText="Delete Bucket"
+                onConfirm={confirmDeleteBucket}
+                styles={{
+                    overlay: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)'
+                    },
+                    modal: {
+                        backgroundColor: backgroundColorCard,
+                        color: textColor,
+                        width: '90%',
+                        maxWidth: '500px'
+                    }
+                }}
+                confirmButtonStyle={{
+                    backgroundColor: 'var(--color-error)',
+                    color: 'white'
+                }}
+            >
+                <div>
+                    <p style={{ marginBottom: '1rem' }}>
+                        Are you sure you want to delete this bucket? This action cannot be undone.
+                    </p>
+                    <p style={{ marginBottom: '1rem', fontWeight: 'bold' }}>
+                        All items in this bucket will also be deleted.
+                    </p>
+                </div>
+            </Modal>
+
             {/* Toast notification */}
             {notification.show && (
-                <Toast
-                    message={notification.message}
-                    type={notification.type}
-                    onClose={() => setNotification({ ...notification, show: false })}
-                />
+                <div style={{
+                    position: 'fixed',
+                    bottom: '80px',
+                    right: '20px',
+                    zIndex: 9999
+                }}>
+                    <Toast
+                        message={notification.message}
+                        type={notification.type}
+                        onClose={() => setNotification({ ...notification, show: false })}
+                    />
+                </div>
             )}
         </div>
     );

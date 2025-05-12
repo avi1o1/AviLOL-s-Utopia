@@ -7,8 +7,6 @@ import { useTheme } from '../context/ThemeContext';
 
 // UI Components
 import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Textarea from '../components/ui/Textarea';
 import Card from '../components/ui/Card';
 import Modal from '../components/ui/Modal';
 import { ToastContainer } from '../components/ui/Toast';
@@ -33,19 +31,24 @@ const safeFormat = (date, formatStr) => {
 };
 
 const DiaryPage = () => {
-  // eslint-disable-next-line no-unused-vars
   const { currentTheme, themes } = useTheme();
   const theme = themes[currentTheme];
 
-  // Check if the current theme is a dark theme
-  const isDarkTheme = ['nightOwl', 'darkRoast', 'obsidian', 'darkForest'].includes(currentTheme);
+  // Determine if the current theme is a dark theme by checking its text color
+  // Dark themes typically have light text colors (#F... or rgb values > 200)
+  const isDarkTheme = theme.text.startsWith('#F') || theme.text.startsWith('#f') ||
+    theme.text.startsWith('#E') || theme.text.startsWith('#e') ||
+    theme.text === '#FAFAFA' || theme.text === '#F5F5F4' || theme.text === '#F9FAFB' ||
+    theme.text === '#F8FAFC';
 
-  // Set contrasting colors based on theme type
-  const textColor = isDarkTheme ? 'var(--color-text)' : 'var(--color-text)';
-  const headingColor = isDarkTheme ? 'var(--color-text)' : 'var(--color-dark)';
-  const secondaryTextColor = isDarkTheme ? 'var(--color-textLight)' : 'var(--color-textLight)';
-  const cardBgColor = isDarkTheme ? 'var(--color-light)' : 'white';
-  // Removed unused variables borderColor and accentBgColor
+  // Card backgrounds should contrast with text
+  const cardBgColor = isDarkTheme ? theme.dark : theme.light;
+  const inputBgColor = isDarkTheme ? theme.dark : theme.accent;
+  const buttonText = isDarkTheme ? theme.dark : 'white';
+
+  // More variables for consistent theming
+  const borderColor = theme.border || theme.primary;
+  const accentColor = theme.accent;
 
   const [entries, setEntries] = useState([]);
   const [newEntry, setNewEntry] = useState('');
@@ -56,8 +59,8 @@ const DiaryPage = () => {
   const [showEntryForm, setShowEntryForm] = useState(false); // Changed to false to keep entry form closed by default
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false); // Add state for delete confirmation modal
-  const [entryToDelete, setEntryToDelete] = useState(null); // Track which entry to delete
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [entryToDelete, setEntryToDelete] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [startDateFilter, setStartDateFilter] = useState('');
@@ -215,7 +218,7 @@ const DiaryPage = () => {
   };
 
   const handleDelete = async (id) => {
-    // Open delete confirmation modal instead of using window.confirm
+    // Open delete confirmation modal
     setEntryToDelete(id);
     setShowDeleteModal(true);
   };
@@ -431,12 +434,12 @@ const DiaryPage = () => {
   // Display loading message if loading
   if (loading && entries.length === 0) {
     return (
-      <div className="diary-page" style={{ color: textColor }}>
+      <div className="diary-page" style={{ color: theme.text }}>
         <div>
           <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
             My Diary
           </h1>
-          <p className="mb-6" style={{ color: secondaryTextColor }}>
+          <p className="mb-6" style={{ color: theme.textLight }}>
             Loading your entries...
           </p>
         </div>
@@ -447,12 +450,12 @@ const DiaryPage = () => {
   // Display error message if there's an error
   if (error && entries.length === 0) {
     return (
-      <div className="page-header" style={{ color: textColor }}>
+      <div className="page-header" style={{ color: theme.text }}>
         <div>
           <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
             My Diary
           </h1>
-          <p className="mb-6" style={{ color: 'var(--color-error)' }}>
+          <p className="mb-6" style={{ color: theme.error || 'red' }}>
             {error}
           </p>
         </div>
@@ -461,14 +464,14 @@ const DiaryPage = () => {
   }
 
   return (
-    <div className="diary-page" style={{ color: textColor }}>
+    <div className="diary-page" style={{ color: theme.text }}>
       <div className="page-header" style={{ borderBottom: `3px solid ${theme.primary}`, marginBottom: '2rem', paddingBottom: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
               My Diary
             </h1>
-            <p className="mb-6" style={{ color: secondaryTextColor }}>
+            <p className="mb-6" style={{ color: theme.textLight }}>
               A place to reflect on your weeks and track your journey
             </p>
           </div>
@@ -499,7 +502,8 @@ const DiaryPage = () => {
             className="p-5 mb-6"
             style={{
               backgroundColor: cardBgColor,
-              borderLeft: '3px solid var(--color-secondary)'
+              borderLeft: `3px solid ${theme.secondary}`,
+              boxShadow: '2px 2px 5px rgba(0,0,0,0.1)'
             }}
           >
             <div className="filter-toolbar">
@@ -513,13 +517,13 @@ const DiaryPage = () => {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     style={{
-                      backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                      color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                      borderColor: 'var(--color-border)'
+                      backgroundColor: inputBgColor,
+                      color: theme.text,
+                      borderColor: borderColor
                     }}
                   />
                   <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5" style={{ color: 'var(--color-gray)' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5" style={{ color: theme.textLight }}>
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
@@ -528,7 +532,7 @@ const DiaryPage = () => {
                       className="absolute inset-y-0 right-0 flex items-center pr-3"
                       onClick={() => setSearchTerm('')}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5" style={{ color: 'var(--color-gray)' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-5 h-5" style={{ color: theme.textLight }}>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
@@ -539,7 +543,7 @@ const DiaryPage = () => {
               {/* Three fields in a row: start date, end date, and sort */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="start-date" className="block font-display mb-2" style={{ color: headingColor }}>From Date</label>
+                  <label htmlFor="start-date" className="block font-display mb-2" style={{ color: theme.primary }}>From Date</label>
                   <input
                     type="date"
                     id="start-date"
@@ -547,15 +551,15 @@ const DiaryPage = () => {
                     value={startDateFilter}
                     onChange={(e) => setStartDateFilter(e.target.value)}
                     style={{
-                      backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                      color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                      borderColor: 'var(--color-border)'
+                      backgroundColor: inputBgColor,
+                      color: theme.text,
+                      borderColor: borderColor
                     }}
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="end-date" className="block font-display mb-2" style={{ color: headingColor }}>To Date</label>
+                  <label htmlFor="end-date" className="block font-display mb-2" style={{ color: theme.primary }}>To Date</label>
                   <input
                     type="date"
                     id="end-date"
@@ -563,24 +567,24 @@ const DiaryPage = () => {
                     value={endDateFilter}
                     onChange={(e) => setEndDateFilter(e.target.value)}
                     style={{
-                      backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                      color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                      borderColor: 'var(--color-border)'
+                      backgroundColor: inputBgColor,
+                      color: theme.text,
+                      borderColor: borderColor
                     }}
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="sort-option" className="block font-display mb-2" style={{ color: headingColor }}>Sort By</label>
+                  <label htmlFor="sort-option" className="block font-display mb-2" style={{ color: theme.primary }}>Sort By</label>
                   <select
                     id="sort-option"
                     className="neo-brutal-input w-full"
                     value={sortOption}
                     onChange={(e) => setSortOption(e.target.value)}
                     style={{
-                      backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                      color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                      borderColor: 'var(--color-border)'
+                      backgroundColor: inputBgColor,
+                      color: theme.text,
+                      borderColor: borderColor
                     }}
                   >
                     <option value="newest">Newest First</option>
@@ -601,8 +605,8 @@ const DiaryPage = () => {
                     }}
                     className="neo-brutal-input px-4"
                     style={{
-                      backgroundColor: 'var(--color-accent)',
-                      color: isDarkTheme ? 'var(--color-dark)' : 'var(--color-dark)',
+                      backgroundColor: accentColor,
+                      color: buttonText,
                       fontFamily: 'var(--font-display)'
                     }}
                   >
@@ -618,79 +622,78 @@ const DiaryPage = () => {
               className="entry-form p-6"
               style={{
                 backgroundColor: cardBgColor,
-                borderTop: '3px solid var(--color-primary)'
+                borderLeft: `3px solid ${theme.primary}`,
+                boxShadow: '3px 3px 0 rgba(0,0,0,0.2)'
               }}
             >
               <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <Input
-                      label="Title"
+                    <label htmlFor="title" className="block font-display mb-2" style={{ color: theme.primary }}>Title</label>
+                    <input
+                      type="text"
                       id="title"
+                      className="neo-brutal-input w-full"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Week's theme or focus"
+                      placeholder="Theme or focus for the entry"
                       required
                       style={{
-                        backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                        color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                        borderColor: 'var(--color-border)'
+                        backgroundColor: inputBgColor,
+                        color: theme.text,
+                        borderColor: borderColor,
+                        padding: '0.75rem',
+                        borderRadius: '0.375rem'
                       }}
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="entry-date" className="block font-display mb-2" style={{ color: headingColor }}>Date</label>
+                    <label htmlFor="entry-date" className="block font-display mb-2" style={{ color: theme.primary }}>Date</label>
                     <input
                       type="date"
                       id="entry-date"
-                      className="neo-brutal-input"
+                      className="neo-brutal-input w-full"
                       value={entryDate}
                       onChange={(e) => setEntryDate(e.target.value)}
                       style={{
-                        backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                        color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                        borderColor: 'var(--color-border)'
+                        backgroundColor: inputBgColor,
+                        color: theme.text,
+                        borderColor: borderColor,
+                        padding: '0.75rem',
+                        borderRadius: '0.375rem'
                       }}
                     />
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <Textarea
-                    label="Content"
+                  <label htmlFor="content" className="block font-display mb-2" style={{ color: theme.primary }}>Content</label>
+                  <textarea
                     id="content"
+                    className="neo-brutal-input w-full"
                     value={newEntry}
                     onChange={(e) => setNewEntry(e.target.value)}
                     placeholder="Your reflections..."
                     rows={8}
                     required
                     style={{
-                      backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                      color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                      borderColor: 'var(--color-border)'
+                      backgroundColor: inputBgColor,
+                      color: theme.text,
+                      borderColor: borderColor,
+                      padding: '0.75rem',
+                      borderRadius: '0.375rem'
                     }}
-                  />
+                  ></textarea>
 
                   <div className="flex justify-between items-center mt-2 text-sm">
-                    <div style={{ color: secondaryTextColor }}>
+                    <div style={{ color: theme.secondary }}>
                       <p>Markdown supported: **bold**, *italic*, # headlines, - lists, etc.</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    style={{
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'white',
-                      border: 'none'
-                    }}
-                  >
-                    Save Entry
-                  </Button>
+                <div className="flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="light"
@@ -700,12 +703,29 @@ const DiaryPage = () => {
                       setNewEntry('');
                     }}
                     style={{
-                      backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                      color: 'var(--color-primary)',
-                      borderColor: 'var(--color-primary)'
+                      backgroundColor: isDarkTheme ? theme.medium : theme.light,
+                      color: theme.primary,
+                      borderColor: theme.primary,
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '0.375rem',
+                      fontWeight: 'bold'
                     }}
                   >
                     Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    style={{
+                      backgroundColor: theme.primary,
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '0.375rem',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Save Entry
                   </Button>
                 </div>
               </form>
@@ -713,15 +733,15 @@ const DiaryPage = () => {
           )}
 
           {entries.length === 0 ? (
-            <div className="text-center p-8" style={{ color: secondaryTextColor }}>
+            <div className="text-center p-8" style={{ color: theme.textLight }}>
               <p className="italic mb-4">No entries yet. Start writing your first diary entry!</p>
               {!showEntryForm && (
                 <Button
                   onClick={() => setShowEntryForm(true)}
                   variant="primary"
                   style={{
-                    backgroundColor: 'var(--color-primary)',
-                    color: 'white',
+                    backgroundColor: theme.primary,
+                    color: theme.secondary,
                     border: 'none'
                   }}
                 >
@@ -784,18 +804,18 @@ const DiaryPage = () => {
                       className="neo-brutal-card entry-card p-6"
                       style={{
                         backgroundColor: cardBgColor,
-                        borderLeft: '3px solid var(--color-primary)',
-                        boxShadow: '3px 3px 0 var(--color-shadow)'
+                        borderLeft: `3px solid ${theme.primary}`,
+                        boxShadow: '3px 3px 0 rgba(0,0,0,0.2)'
                       }}
                     >
                       <div className="entry-card-header flex justify-between items-start">
-                        <h3 className="font-display text-3xl" style={{ color: headingColor }}>{entry.title || 'Untitled Entry'}</h3>
-                        <div className="entry-meta">
-                          <span className="entry-date" style={{ color: textColor }}>
+                        <h3 className="font-display text-3xl overflow-hidden text-ellipsis" style={{ color: theme.primary, maxWidth: '87%' }}>{entry.title || 'Untitled Entry'}</h3>
+                        <div className="entry-meta" style={{ minWidth: '100px', flexShrink: 0, textAlign: 'right' }}>
+                          <span className="entry-date" style={{ color: theme.text }}>
                             {safeFormat(new Date(entry.date), 'MMMM d, yyyy')}
                           </span>
                           {entry.updated && (
-                            <span style={{ color: secondaryTextColor, marginLeft: '0.5rem' }}>
+                            <span style={{ color: theme.textLight, display: 'block' }}>
                               Edited: {safeFormat(new Date(entry.updated), 'MMM d, yyyy')}
                             </span>
                           )}
@@ -806,23 +826,30 @@ const DiaryPage = () => {
                         <div
                           className="prose max-w-none markdown-content"
                           style={{
-                            color: textColor,
-                            '--heading-color': headingColor,
-                            '--text-color': textColor,
-                            '--link-color': 'var(--color-primary)'
+                            color: theme.text,
+                            '--heading-color': theme.text,
+                            '--text-color': theme.text,
+                            '--link-color': theme.text
                           }}
                         >
                           <ReactMarkdown components={{
-                            // Fixed accessibility warnings by ensuring components have content
-                            h1: ({ node, children, ...props }) => <h1 style={{ color: headingColor }} {...props}>{children}</h1>,
-                            h2: ({ node, children, ...props }) => <h2 style={{ color: headingColor }} {...props}>{children}</h2>,
-                            h3: ({ node, children, ...props }) => <h3 style={{ color: headingColor }} {...props}>{children}</h3>,
-                            h4: ({ node, children, ...props }) => <h4 style={{ color: headingColor }} {...props}>{children}</h4>,
-                            h5: ({ node, children, ...props }) => <h5 style={{ color: headingColor }} {...props}>{children}</h5>,
-                            h6: ({ node, children, ...props }) => <h6 style={{ color: headingColor }} {...props}>{children}</h6>,
-                            a: ({ node, children, ...props }) => <a style={{ color: 'var(--color-primary)' }} {...props}>{children}</a>,
-                            strong: ({ node, ...props }) => <strong style={{ color: headingColor }} {...props} />,
-                            em: ({ node, ...props }) => <em style={{ color: textColor }} {...props} />
+                            // Use theme.text color for all Markdown components
+                            h1: ({ node, children, ...props }) => <h1 style={{ color: theme.text }} {...props}>{children}</h1>,
+                            h2: ({ node, children, ...props }) => <h2 style={{ color: theme.text }} {...props}>{children}</h2>,
+                            h3: ({ node, children, ...props }) => <h3 style={{ color: theme.text }} {...props}>{children}</h3>,
+                            h4: ({ node, children, ...props }) => <h4 style={{ color: theme.text }} {...props}>{children}</h4>,
+                            h5: ({ node, children, ...props }) => <h5 style={{ color: theme.text }} {...props}>{children}</h5>,
+                            h6: ({ node, children, ...props }) => <h6 style={{ color: theme.text }} {...props}>{children}</h6>,
+                            a: ({ node, children, ...props }) => <a style={{ color: theme.text }} {...props}>{children}</a>,
+                            strong: ({ node, children, ...props }) => <strong style={{ color: theme.text }} {...props}>{children}</strong>,
+                            em: ({ node, children, ...props }) => <em style={{ color: theme.text }} {...props}>{children}</em>,
+                            p: ({ node, children, ...props }) => <p style={{ color: theme.text }} {...props}>{children}</p>,
+                            ul: ({ node, children, ...props }) => <ul style={{ color: theme.text }} {...props}>{children}</ul>,
+                            ol: ({ node, children, ...props }) => <ol style={{ color: theme.text }} {...props}>{children}</ol>,
+                            li: ({ node, children, ...props }) => <li style={{ color: theme.text }} {...props}>{children}</li>,
+                            blockquote: ({ node, children, ...props }) => <blockquote style={{ color: theme.text, borderLeftColor: theme.text }} {...props}>{children}</blockquote>,
+                            code: ({ node, children, ...props }) => <code style={{ color: theme.text, backgroundColor: 'transparent' }} {...props}>{children}</code>,
+                            pre: ({ node, children, ...props }) => <pre style={{ color: theme.text, backgroundColor: 'transparent', border: `1px solid ${theme.border || theme.text}` }} {...props}>{children}</pre>,
                           }}>
                             {entry.content}
                           </ReactMarkdown>
@@ -837,8 +864,8 @@ const DiaryPage = () => {
                             size="small"
                             className="btn-icon"
                             style={{
-                              backgroundColor: 'var(--color-accent)',
-                              color: isDarkTheme ? 'var(--color-dark)' : 'var(--color-dark)',
+                              backgroundColor: theme.secondary,
+                              color: 'white',
                               border: 'none'
                             }}
                           >
@@ -850,8 +877,8 @@ const DiaryPage = () => {
                             size="small"
                             className="btn-icon"
                             style={{
-                              backgroundColor: isDarkTheme ? 'var(--color-accent)' : 'var(--color-dark)',
-                              color: isDarkTheme ? 'var(--color-dark)' : 'white',
+                              backgroundColor: theme.error,
+                              color: 'white',
                               border: 'none'
                             }}
                           >
@@ -870,16 +897,16 @@ const DiaryPage = () => {
       {viewMode === 'view' && currentEntry && (
         <div className="view-entry">
           <div className="flex justify-between items-center mb-6 pb-2" style={{
-            borderBottom: '2px solid var(--color-primary)'
+            borderBottom: `2px solid ${theme.primary}`
           }}>
             <div>
-              <h2 className="text-2xl font-display" style={{ color: headingColor }}>{currentEntry.title}</h2>
+              <h2 className="text-2xl font-display" style={{ color: theme.primary }}>{currentEntry.title}</h2>
               <div className="entry-meta">
-                <span className="entry-date" style={{ color: textColor }}>
+                <span className="entry-date" style={{ color: theme.text }}>
                   {safeFormat(new Date(currentEntry.date), 'MMMM d, yyyy')}
                 </span>
                 {currentEntry.updated && (
-                  <span style={{ color: secondaryTextColor, marginLeft: '0.5rem' }}>
+                  <span style={{ color: theme.textLight, marginLeft: '0.5rem' }}>
                     Edited: {safeFormat(new Date(currentEntry.updated), 'MMM d, yyyy')}
                   </span>
                 )}
@@ -891,53 +918,69 @@ const DiaryPage = () => {
             className="p-6 mb-6"
             style={{
               backgroundColor: cardBgColor,
-              borderLeft: '3px solid var(--color-primary)'
+              borderLeft: `3px solid ${theme.primary}`,
+              boxShadow: '2px 2px 5px rgba(0,0,0,0.1)'
             }}
           >
-            <div className="prose max-w-none" style={{ color: textColor }}>
-              <ReactMarkdown>
+            <div className="prose max-w-none" style={{ color: theme.text }}>
+              <ReactMarkdown components={{
+                // Use theme.text color for all Markdown components
+                h1: ({ node, children, ...props }) => <h1 style={{ color: theme.text }} {...props}>{children}</h1>,
+                h2: ({ node, children, ...props }) => <h2 style={{ color: theme.text }} {...props}>{children}</h2>,
+                h3: ({ node, children, ...props }) => <h3 style={{ color: theme.text }} {...props}>{children}</h3>,
+                h4: ({ node, children, ...props }) => <h4 style={{ color: theme.text }} {...props}>{children}</h4>,
+                h5: ({ node, children, ...props }) => <h5 style={{ color: theme.text }} {...props}>{children}</h5>,
+                h6: ({ node, children, ...props }) => <h6 style={{ color: theme.text }} {...props}>{children}</h6>,
+                a: ({ node, children, ...props }) => <a style={{ color: theme.text }} {...props}>{children}</a>,
+                strong: ({ node, children, ...props }) => <strong style={{ color: theme.text }} {...props}>{children}</strong>,
+                em: ({ node, children, ...props }) => <em style={{ color: theme.text }} {...props}>{children}</em>,
+                p: ({ node, children, ...props }) => <p style={{ color: theme.text }} {...props}>{children}</p>,
+                ul: ({ node, children, ...props }) => <ul style={{ color: theme.text }} {...props}>{children}</ul>,
+                ol: ({ node, children, ...props }) => <ol style={{ color: theme.text }} {...props}>{children}</ol>,
+                li: ({ node, children, ...props }) => <li style={{ color: theme.text }} {...props}>{children}</li>,
+                blockquote: ({ node, children, ...props }) => <blockquote style={{ color: theme.text, borderLeftColor: theme.text }} {...props}>{children}</blockquote>,
+                code: ({ node, children, ...props }) => <code style={{ color: theme.text, backgroundColor: 'transparent' }} {...props}>{children}</code>,
+                pre: ({ node, children, ...props }) => <pre style={{ color: theme.text, backgroundColor: 'transparent', border: `1px solid ${theme.border || theme.text}` }} {...props}>{children}</pre>,
+              }}>
                 {currentEntry.content}
               </ReactMarkdown>
             </div>
           </Card>
 
-          <div className="flex justify-between">
+          <div className="flex justify-end gap-4">
             <Button
               onClick={() => setViewMode('list')}
               variant="light"
               style={{
-                backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                color: 'var(--color-primary)',
-                borderColor: 'var(--color-primary)'
+                backgroundColor: isDarkTheme ? theme.medium : theme.light,
+                color: theme.primary,
+                borderColor: theme.primary
               }}
             >
               Back to All Entries
             </Button>
-
-            <div className="btn-group">
-              <Button
-                onClick={() => handleEdit(currentEntry)}
-                variant="accent"
-                style={{
-                  backgroundColor: 'var(--color-accent)',
-                  color: isDarkTheme ? 'var(--color-dark)' : 'var(--color-dark)',
-                  border: 'none'
-                }}
-              >
-                Edit Entry
-              </Button>
-              <Button
-                onClick={() => handleDelete(currentEntry._id || currentEntry.id)}
-                variant="dark"
-                style={{
-                  backgroundColor: isDarkTheme ? 'var(--color-accent)' : 'var(--color-dark)',
-                  color: isDarkTheme ? 'var(--color-dark)' : 'white',
-                  border: 'none'
-                }}
-              >
-                Delete Entry
-              </Button>
-            </div>
+            <Button
+              onClick={() => handleEdit(currentEntry)}
+              variant="accent"
+              style={{
+                backgroundColor: accentColor,
+                color: buttonText,
+                border: 'none'
+              }}
+            >
+              Edit Entry
+            </Button>
+            <Button
+              onClick={() => handleDelete(currentEntry._id || currentEntry.id)}
+              variant="dark"
+              style={{
+                backgroundColor: isDarkTheme ? theme.accent : theme.dark,
+                color: buttonText,
+                border: 'none'
+              }}
+            >
+              Delete Entry
+            </Button>
           </div>
         </div>
       )}
@@ -945,8 +988,8 @@ const DiaryPage = () => {
       {viewMode === 'edit' && currentEntry && (
         <div className="edit-entry">
           <h2 className="text-2xl font-display mb-4 pb-2" style={{
-            color: headingColor,
-            borderBottom: '2px solid var(--color-primary)'
+            color: theme.primary,
+            borderBottom: `2px solid ${theme.primary}`
           }}>
             Edit Entry
           </h2>
@@ -955,66 +998,78 @@ const DiaryPage = () => {
             className="p-6 mb-6"
             style={{
               backgroundColor: cardBgColor,
-              borderLeft: '3px solid var(--color-primary)'
+              borderLeft: `3px solid ${theme.primary}`,
+              boxShadow: '3px 3px 0 rgba(0,0,0,0.2)'
             }}
           >
             <form onSubmit={handleUpdate}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <Input
-                    label="Title"
+                  <label htmlFor="edit-title" className="block font-display mb-2" style={{ color: theme.primary }}>Title</label>
+                  <input
+                    type="text"
                     id="edit-title"
+                    className="neo-brutal-input w-full"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Week's theme or focus"
                     required
                     style={{
-                      backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                      color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                      borderColor: 'var(--color-border)'
+                      backgroundColor: inputBgColor,
+                      color: theme.text,
+                      borderColor: borderColor,
+                      padding: '0.75rem',
+                      borderRadius: '0.375rem'
                     }}
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="edit-date" className="block font-display mb-2" style={{ color: headingColor }}>Date</label>
+                  <label htmlFor="edit-date" className="block font-display mb-2" style={{ color: theme.primary }}>Date</label>
                   <input
                     type="date"
                     id="edit-date"
-                    className="neo-brutal-input"
+                    className="neo-brutal-input w-full"
                     value={entryDate}
                     onChange={(e) => setEntryDate(e.target.value)}
                     style={{
-                      backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                      color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                      borderColor: 'var(--color-border)'
+                      backgroundColor: inputBgColor,
+                      color: theme.text,
+                      borderColor: borderColor,
+                      padding: '0.75rem',
+                      borderRadius: '0.375rem'
                     }}
                   />
                 </div>
               </div>
 
               <div className="mb-4">
-                <Textarea
-                  label="Reflections..."
+                <label htmlFor="edit-content" className="block font-display mb-2" style={{ color: theme.primary }}>Content</label>
+                <textarea
                   id="edit-content"
+                  className="neo-brutal-input w-full"
                   value={newEntry}
                   onChange={(e) => setNewEntry(e.target.value)}
+                  placeholder="Your reflections..."
                   rows={8}
                   required
                   style={{
-                    backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                    color: isDarkTheme ? 'var(--color-text)' : 'var(--color-text)',
-                    borderColor: 'var(--color-border)'
+                    backgroundColor: inputBgColor,
+                    color: theme.text,
+                    borderColor: borderColor,
+                    padding: '0.75rem',
+                    borderRadius: '0.375rem'
                   }}
-                />
+                ></textarea>
 
                 <div className="flex justify-between items-center mt-2 text-sm">
-                  <div style={{ color: secondaryTextColor }}>
+                  <div style={{ color: theme.textLight }}>
                     <p>Markdown supported: **bold**, *italic*, # headlines, - lists, etc.</p>
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-between">
+              <div className="flex justify-end gap-2">
                 <Button
                   type="button"
                   onClick={() => {
@@ -1025,27 +1080,30 @@ const DiaryPage = () => {
                   }}
                   variant="light"
                   style={{
-                    backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-                    color: 'var(--color-primary)',
-                    borderColor: 'var(--color-primary)'
+                    backgroundColor: isDarkTheme ? theme.medium : theme.light,
+                    color: theme.primary,
+                    borderColor: theme.primary,
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '0.375rem',
+                    fontWeight: 'bold'
                   }}
                 >
                   Cancel
                 </Button>
-
-                <div className="btn-group">
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    style={{
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'white',
-                      border: 'none'
-                    }}
-                  >
-                    Update Entry
-                  </Button>
-                </div>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  style={{
+                    backgroundColor: theme.primary,
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '0.375rem',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Update Entry
+                </Button>
               </div>
             </form>
           </Card>
@@ -1068,24 +1126,24 @@ const DiaryPage = () => {
             overlay: { backgroundColor: 'rgba(0, 0, 0, 0.75)' },
             modal: {
               backgroundColor: cardBgColor,
-              color: textColor,
-              borderColor: 'var(--color-error)'
+              color: theme.text,
+              borderColor: theme.error || '#ff5252'
             },
-            header: { borderColor: 'var(--color-error)' },
-            title: { color: headingColor },
+            header: { borderColor: theme.error || '#ff5252' },
+            title: { color: theme.primary },
             confirmButton: {
-              backgroundColor: 'var(--color-error)',
+              backgroundColor: theme.error || '#ff5252',
               color: 'white',
               border: 'none'
             },
             cancelButton: {
-              backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
-              color: 'var(--color-primary)',
-              borderColor: 'var(--color-primary)'
+              backgroundColor: isDarkTheme ? theme.medium : theme.light,
+              color: theme.primary,
+              borderColor: theme.primary
             }
           }}
         >
-          <p style={{ color: textColor }}>Are you sure you want to delete this entry? This action cannot be undone.</p>
+          <p style={{ color: theme.text }}>Are you sure you want to delete this entry? This action cannot be undone.</p>
         </Modal>
       )}
 

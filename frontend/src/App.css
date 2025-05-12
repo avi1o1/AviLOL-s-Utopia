@@ -52,6 +52,8 @@
 }
 
 /* Theme Classes */
+
+/* Light Themes */
 .theme-minimalist {
   --color-primary: #4A6D7C;
   --color-secondary: #CCD6DD;
@@ -84,11 +86,31 @@
   --color-light: #F0F0F0;
 }
 
+/* Dark Themes */
+.theme-dark {
+  --color-primary: #3A506B;
+  --color-secondary: #5BC0BE;
+  --color-accent: #1C2541;
+  --color-dark: #0B132B;
+  --color-light: #222222;
+  --color-text: #FFFFFF;
+}
+
 .theme-dark .neo-brutal-card,
 .theme-dark .neo-brutal-input,
 .theme-dark .neo-brutal-btn {
   background-color: var(--color-dark);
   color: #FFFFFF;
+  border-color: #FFFFFF;
+}
+
+.theme-dark .neo-brutal-element {
+  border-color: #FFFFFF;
+  box-shadow: 5px 5px 0px 0px rgba(255, 255, 255, 0.8);
+}
+
+.theme-dark .neo-brutal-element:hover {
+  box-shadow: 8px 8px 0px 0px rgba(255, 255, 255, 0.8);
 }
 
 /* Neobrutalism Styling */
@@ -311,6 +333,37 @@ footer {
 
 .nav-link.active {
   background-color: var(--color-accent);
+}
+
+/* Ensuring button.nav-link has same styling as anchor.nav-link */
+button.nav-link {
+  background-color: white;
+  cursor: pointer;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  text-decoration: none;
+  border: 2px solid var(--color-dark);
+  border-radius: var(--border-radius-sm);
+  box-shadow: 3px 3px 0 var(--color-dark);
+  transition: all var(--transition-fast);
+  text-transform: uppercase;
+  font-size: var(--font-size-sm);
+  letter-spacing: 0.05em;
+  padding: var(--spacing-xs) var(--spacing-md);
+  color: var(--color-dark);
+  display: inline-block;
+}
+
+button.nav-link:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--color-dark);
+  background-color: var(--color-accent);
+  color: var(--color-secondary);
+}
+
+button.nav-link:active {
+  transform: translate(0, 0);
+  box-shadow: 2px 2px 0 var(--color-dark);
 }
 
 /* Main Content Area */
@@ -865,5 +918,122 @@ footer {
 
   .landing-feature-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Hamburger menu button styles - completely redesigned */
+.hamburger-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 12px;
+  position: relative;
+  height: 40px;
+  width: 40px;
+  z-index: 1000;
+  border-radius: 50%;
+  transition: background-color 0.3s ease;
+}
+
+.hamburger-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.hamburger-btn span {
+  display: block;
+  position: absolute;
+  width: 22px;
+  height: 2px;
+  left: 9px;
+  background-color: white;
+  border-radius: 4px;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.hamburger-btn span:nth-child(1) {
+  top: 14px;
+}
+
+.hamburger-btn span:nth-child(2) {
+  top: 20px;
+}
+
+.hamburger-btn span:nth-child(3) {
+  top: 26px;
+}
+
+/* Clean hamburger to X animation */
+.hamburger-btn.open span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.hamburger-btn.open span:nth-child(2) {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.hamburger-btn.open span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+/* Mobile menu styles */
+@media (max-width: 767px) {
+  .hamburger-btn {
+    display: block;
+  }
+
+  .app-header .container {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+  }
+
+  .nav-links {
+    position: fixed;
+    top: 0;
+    right: -100%;
+    width: 75%;
+    max-width: 300px;
+    height: 100vh;
+    background-color: var(--color-primary);
+    flex-direction: column;
+    padding: 80px 1.5rem 2rem;
+    transition: all 0.3s ease;
+    z-index: 999;
+    box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
+  .nav-links.mobile-menu-open {
+    right: 0;
+  }
+
+  .nav-links .nav-link,
+  .nav-links button.nav-link {
+    width: 100%;
+    margin: 10px 0;
+    padding: 12px 15px;
+    text-align: left;
+    font-size: 16px;
+    display: block;
+  }
+
+  /* Media query for mobile logout button */
+  button.nav-link {
+    width: 100%;
+    text-align: left;
+  }
+}
+
+/* Desktop view remains unchanged */
+@media (min-width: 768px) {
+  .nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    justify-content: center;
   }
 }

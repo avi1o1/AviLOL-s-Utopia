@@ -76,13 +76,13 @@ const getUserProfile = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc    Export all user data (journals, diaries, buckets)
+// @desc    Export user data
 // @route   GET /api/users/export
 // @access  Private
 const exportUserData = asyncHandler(async (req, res) => {
     try {
-        // Get user data without password
-        const user = await User.findById(req.user._id).select('-password');
+        // Get the authenticated user
+        const user = await User.findById(req.user._id);
 
         if (!user) {
             res.status(404);
@@ -93,14 +93,14 @@ const exportUserData = asyncHandler(async (req, res) => {
         const Journal = require('../models/journalModel');
         const journals = await Journal.find({ user: req.user._id });
 
-        // Simplify journals data to only include essential textual content
+        // Simplify journal data to only include essential textual content
         const simplifiedJournals = journals.map(journal => ({
             title: journal.title,
             content: journal.content,
             date: journal.date,
         }));
 
-        // Get all the user's diary entries
+        // Get all the user's diaries
         const Diary = require('../models/diaryModel');
         const diaries = await Diary.find({ user: req.user._id });
 
@@ -119,8 +119,10 @@ const exportUserData = asyncHandler(async (req, res) => {
         const simplifiedBuckets = buckets.map(bucket => ({
             name: bucket.name,
             description: bucket.description,
+            pinned: bucket.isHighlighted,
             items: bucket.items.map(item => ({
-                content: item.content
+                content: item.content,
+                pinned: item.isHighlighted
             }))
         }));
 
@@ -144,8 +146,200 @@ const exportUserData = asyncHandler(async (req, res) => {
         });
 
     } catch (error) {
+        console.error('Error exporting user data:', error);
         res.status(500);
-        throw new Error(`Error exporting data: ${error.message}`);
+        throw new Error('Could not export data: ' + error.message);
+    }
+});
+
+// @desc    Import user data
+// @route   POST /api/users/import
+// @access  Private
+const importUserData = asyncHandler(async (req, res) => {
+    try {
+        // Get the authenticated user
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            res.status(404);
+            throw new Error('User not found');
+        }
+
+        const { importData } = req.body;
+
+        // Basic validation
+        if (!importData || !importData.user ||
+            !Array.isArray(importData.journals) ||
+            !Array.isArray(importData.diaries) ||
+            !Array.isArray(importData.buckets)) {
+            res.status(400);
+            throw new Error('Invalid import data structure');
+        }
+
+        // Import journals - with duplicate prevention
+        const Journal = require('../models/journalModel');
+        let importedJournals = 0;
+        let skippedJournals = 0;
+
+        // Get existing journals to check for duplicates
+        const existingJournals = await Journal.find({ user: req.user._id });
+
+        for (const journalData of importData.journals) {
+            if (journalData.title && journalData.content && journalData.date) {
+                // Check for duplicates
+                const isDuplicate = existingJournals.some(
+                    existingJournal =>
+                        existingJournal.title === journalData.title &&
+                        existingJournal.content === journalData.content
+                );
+
+                if (isDuplicate) {
+                    skippedJournals++;
+                    continue;
+                }
+
+                await Journal.create({
+                    user: req.user._id,
+                    title: journalData.title,
+                    content: journalData.content,
+                    date: new Date(journalData.date),
+                    mood: journalData.mood || 'neutral'
+                });
+                importedJournals++;
+            }
+        }
+
+        // Import diaries - with duplicate prevention
+        const Diary = require('../models/diaryModel');
+        let importedDiaries = 0;
+        let skippedDiaries = 0;
+
+        // Get existing diaries to check for duplicates
+        const existingDiaries = await Diary.find({ user: req.user._id });
+
+        for (const diaryData of importData.diaries) {
+            if (diaryData.title && diaryData.content && diaryData.date) {
+                // Check for duplicates
+                const isDuplicate = existingDiaries.some(
+                    existingDiary =>
+                        existingDiary.title === diaryData.title &&
+                        existingDiary.content === diaryData.content
+                );
+
+                if (isDuplicate) {
+                    skippedDiaries++;
+                    continue;
+                }
+
+                await Diary.create({
+                    user: req.user._id,
+                    title: diaryData.title,
+                    content: diaryData.content,
+                    date: new Date(diaryData.date),
+                    wordCount: diaryData.wordCount || 0
+                });
+                importedDiaries++;
+            }
+        }
+
+        // Import buckets - with merging for duplicates
+        const Bucket = require('../models/bucketModel');
+        let importedBuckets = 0;
+        let mergedBuckets = 0;
+        let importedItems = 0;
+
+        // Get existing buckets to check for duplicates
+        const existingBuckets = await Bucket.find({ user: req.user._id });
+
+        for (const bucketData of importData.buckets) {
+            if (bucketData.name && Array.isArray(bucketData.items)) {
+                // Check for existing bucket with same name and description (or empty description)
+                const existingBucket = existingBuckets.find(
+                    bucket => {
+                        // Match by name
+                        const nameMatches = bucket.name === bucketData.name;
+
+                        // Match descriptions, handling empty values
+                        const bucketDesc = bucket.description || '';
+                        const importDesc = bucketData.description || '';
+
+                        const descMatches = bucketDesc === importDesc;
+
+                        // Return true if both name and description match
+                        return nameMatches && descMatches;
+                    }
+                );
+
+                if (existingBucket) {
+                    // Merge items into existing bucket
+                    let itemsAdded = 0;
+
+                    for (const itemData of bucketData.items) {
+                        if (itemData.content) {
+                            existingBucket.items.push({
+                                content: itemData.content,
+                                isHighlighted: itemData.pinned || false
+                            });
+                            itemsAdded++;
+                        }
+                    }
+
+                    await existingBucket.save();
+                    mergedBuckets++;
+                    importedItems += itemsAdded;
+                } else {
+                    // Create a new bucket
+                    const bucket = await Bucket.create({
+                        user: req.user._id,
+                        name: bucketData.name,
+                        description: bucketData.description || '',
+                        icon: bucketData.icon || '📝',
+                        color: bucketData.color || '#3498db',
+                        isHighlighted: bucketData.pinned || false,
+                        items: []
+                    });
+
+                    // Add items to the bucket
+                    for (const itemData of bucketData.items) {
+                        if (itemData.content) {
+                            bucket.items.push({
+                                content: itemData.content,
+                                isHighlighted: itemData.pinned || false
+                            });
+                            importedItems++;
+                        }
+                    }
+
+                    await bucket.save();
+                    importedBuckets++;
+                }
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Successfully imported ${importedJournals} journals, ${importedDiaries} diaries, ${importedBuckets} new buckets with ${importedItems} items. Skipped ${skippedJournals} duplicate journals, ${skippedDiaries} duplicate diaries, and merged items into ${mergedBuckets} existing buckets.`,
+            stats: {
+                journals: {
+                    imported: importedJournals,
+                    skipped: skippedJournals
+                },
+                diaries: {
+                    imported: importedDiaries,
+                    skipped: skippedDiaries
+                },
+                buckets: {
+                    new: importedBuckets,
+                    merged: mergedBuckets,
+                    items: importedItems
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Error importing user data:', error);
+        res.status(500);
+        throw new Error('Could not import data: ' + error.message);
     }
 });
 
@@ -160,5 +354,6 @@ module.exports = {
     registerUser,
     loginUser,
     getUserProfile,
-    exportUserData
+    exportUserData,
+    importUserData
 };

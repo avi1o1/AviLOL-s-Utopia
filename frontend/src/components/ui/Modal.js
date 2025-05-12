@@ -2,22 +2,28 @@ import React, { useEffect } from 'react';
 import Button from './Button';
 import { useTheme } from '../../context/ThemeContext';
 
-const Modal = ({ 
-  show, 
-  onClose, 
-  onConfirm, 
-  title, 
-  children, 
+const Modal = ({
+  show,
+  onClose,
+  onConfirm,
+  title,
+  children,
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   confirmVariant = 'primary',
   styles = {}
 }) => {
-  const { currentTheme } = useTheme();
-  
-  // Check if the current theme is a dark theme
-  const isDarkTheme = ['nightOwl', 'darkRoast', 'obsidian', 'darkForest'].includes(currentTheme);
-  
+  const { currentTheme, themes } = useTheme();
+
+  // Access the current theme object from the themes collection
+  const theme = themes[currentTheme];
+
+  // Determine if the current theme is a dark theme by checking its text color
+  const isDarkTheme = theme.text.startsWith('#F') || theme.text.startsWith('#f') ||
+    theme.text.startsWith('#E') || theme.text.startsWith('#e') ||
+    theme.text === '#FAFAFA' || theme.text === '#F5F5F4' || theme.text === '#F9FAFB' ||
+    theme.text === '#F8FAFC';
+
   // Set contrasting colors based on theme type
   const textColor = isDarkTheme ? 'var(--color-text)' : 'var(--color-text)';
   const headingColor = isDarkTheme ? 'var(--color-text)' : 'var(--color-dark)';
@@ -29,16 +35,16 @@ const Modal = ({
   useEffect(() => {
     if (show) {
       document.body.style.overflow = 'hidden';
-      
+
       // Force the modal to be visible immediately
       setTimeout(() => {
         const modalOverlay = document.querySelector('.modal-overlay');
         const modalContent = document.querySelector('.modal-content');
-        
+
         if (modalOverlay) {
           modalOverlay.style.opacity = '1';
         }
-        
+
         if (modalContent) {
           modalContent.style.transform = 'scale(1)';
           modalContent.style.opacity = '1';
@@ -47,7 +53,7 @@ const Modal = ({
     } else {
       document.body.style.overflow = 'unset';
     }
-    
+
     return () => {
       document.body.style.overflow = 'unset';
     };
@@ -66,16 +72,16 @@ const Modal = ({
   const modalBackground = isDarkTheme
     ? styles.modal?.backgroundColor || cardBgColor
     : styles.modal?.backgroundColor || 'white';
-    
+
   // Set custom shadow based on theme
   const modalShadow = isDarkTheme
     ? `0 8px 20px ${shadowColor}`
     : `6px 6px 0 ${shadowColor}`;
 
   return (
-    <div 
+    <div
       className="modal-overlay"
-      style={{ 
+      style={{
         position: 'fixed',
         top: 0,
         left: 0,
@@ -93,9 +99,9 @@ const Modal = ({
       }}
       onClick={handleOverlayClick}
     >
-      <div 
+      <div
         className="modal-content"
-        style={{ 
+        style={{
           position: 'relative',
           width: '100%',
           maxWidth: '450px',
@@ -114,45 +120,45 @@ const Modal = ({
         }}
         onClick={(e) => e.stopPropagation()} // Prevent clicks from bubbling to overlay
       >
-        <div 
+        <div
           className="modal-header"
-          style={{ 
+          style={{
             marginBottom: '16px',
             paddingBottom: '8px',
-            borderBottom: '2px solid', 
+            borderBottom: '2px solid',
             borderColor: styles.header?.borderColor || borderColor
           }}
         >
-          <h3 
-            style={{ 
+          <h3
+            style={{
               fontSize: '1.25rem',
               fontWeight: 'bold',
               fontFamily: 'var(--font-display, sans-serif)',
               margin: 0,
-              color: styles.title?.color || headingColor 
+              color: styles.title?.color || headingColor
             }}
           >
             {title}
           </h3>
         </div>
-        
-        <div 
+
+        <div
           className="modal-body"
           style={{ marginBottom: '20px' }}
         >
           {children}
         </div>
-        
-        <div 
-          className="modal-footer" 
+
+        <div
+          className="modal-footer"
           style={{
-            display: 'flex', 
-            justifyContent: 'flex-end', 
+            display: 'flex',
+            justifyContent: 'flex-end',
             gap: '8px'
           }}
         >
-          <Button 
-            onClick={onClose} 
+          <Button
+            onClick={onClose}
             variant="light"
             style={styles.cancelButton || {
               backgroundColor: isDarkTheme ? 'var(--color-dark)' : 'white',
@@ -162,9 +168,9 @@ const Modal = ({
           >
             {cancelText}
           </Button>
-          
-          <Button 
-            onClick={onConfirm} 
+
+          <Button
+            onClick={onConfirm}
             variant={confirmVariant}
             style={styles.confirmButton || {
               backgroundColor: 'var(--color-error)',

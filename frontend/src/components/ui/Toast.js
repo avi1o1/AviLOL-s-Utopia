@@ -5,31 +5,37 @@ import { useTheme } from '../../context/ThemeContext';
 const ToastContext = createContext();
 
 // Toast component for individual notifications
-const Toast = ({ 
-  message, 
-  type = 'success', 
+const Toast = ({
+  message,
+  type = 'success',
   duration = 3000,
   onClose
 }) => {
   const [visible, setVisible] = useState(true);
-  const { currentTheme } = useTheme();
-  
-  // Check if the current theme is a dark theme
-  const isDarkTheme = ['nightOwl', 'darkRoast', 'obsidian', 'darkForest'].includes(currentTheme);
-  
+  const { currentTheme, themes } = useTheme();
+
+  // Access the current theme object from the themes collection
+  const theme = themes[currentTheme];
+
+  // Determine if the current theme is a dark theme by checking its text color
+  const isDarkTheme = theme.text.startsWith('#F') || theme.text.startsWith('#f') ||
+    theme.text.startsWith('#E') || theme.text.startsWith('#e') ||
+    theme.text === '#FAFAFA' || theme.text === '#F5F5F4' || theme.text === '#F9FAFB' ||
+    theme.text === '#F8FAFC';
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setVisible(false);
       if (onClose) onClose();
     }, duration);
-    
+
     return () => {
       clearTimeout(timer);
     };
   }, [duration, onClose]);
-  
+
   if (!visible) return null;
-  
+
   // Get theme colors based on toast type
   const getToastStyles = (type) => {
     // Base styles
@@ -38,14 +44,14 @@ const Toast = ({
       color: 'var(--color-text)',
       borderColor: 'var(--color-primary)'
     };
-    
+
     // Type-specific styles
     switch (type) {
       case 'success':
         return {
           ...baseStyles,
           borderColor: 'var(--color-success)',
-          backgroundColor: isDarkTheme 
+          backgroundColor: isDarkTheme
             ? 'rgba(16, 185, 129, 0.15)' // Dark success background
             : 'rgba(16, 185, 129, 0.1)' // Light success background
         };
@@ -53,7 +59,7 @@ const Toast = ({
         return {
           ...baseStyles,
           borderColor: 'var(--color-error)',
-          backgroundColor: isDarkTheme 
+          backgroundColor: isDarkTheme
             ? 'rgba(239, 68, 68, 0.15)' // Dark error background
             : 'rgba(239, 68, 68, 0.1)' // Light error background
         };
@@ -61,7 +67,7 @@ const Toast = ({
         return {
           ...baseStyles,
           borderColor: 'var(--color-warning)',
-          backgroundColor: isDarkTheme 
+          backgroundColor: isDarkTheme
             ? 'rgba(245, 158, 11, 0.15)' // Dark warning background
             : 'rgba(245, 158, 11, 0.1)' // Light warning background
         };
@@ -69,7 +75,7 @@ const Toast = ({
         return {
           ...baseStyles,
           borderColor: 'var(--color-info)',
-          backgroundColor: isDarkTheme 
+          backgroundColor: isDarkTheme
             ? 'rgba(59, 130, 246, 0.15)' // Dark info background
             : 'rgba(59, 130, 246, 0.1)' // Light info background
         };
@@ -79,7 +85,7 @@ const Toast = ({
   };
 
   const toastStyles = getToastStyles(type);
-  
+
   // Get icon based on toast type
   const getToastIcon = () => {
     switch (type) {
@@ -111,28 +117,28 @@ const Toast = ({
         return null;
     }
   };
-  
+
   const typeTextColors = {
     success: 'var(--color-success)',
     error: 'var(--color-error)',
     warning: 'var(--color-warning)',
     info: 'var(--color-info)'
   };
-  
+
   return (
-    <div 
-      className="toast-item" 
-      style={{ 
+    <div
+      className="toast-item"
+      style={{
         position: 'relative',
         backgroundColor: toastStyles.backgroundColor,
         color: toastStyles.color,
         borderLeft: `4px solid ${toastStyles.borderColor}`,
         borderRadius: '6px',
-        boxShadow: isDarkTheme 
-          ? '0 4px 12px rgba(0, 0, 0, 0.3)' 
+        boxShadow: isDarkTheme
+          ? '0 4px 12px rgba(0, 0, 0, 0.3)'
           : '6px 6px 0 var(--color-shadow)',
-        border: isDarkTheme 
-          ? `1px solid ${toastStyles.borderColor}` 
+        border: isDarkTheme
+          ? `1px solid ${toastStyles.borderColor}`
           : '2px solid var(--color-dark)',
         borderLeftWidth: '4px',
         padding: '12px 16px',
@@ -154,10 +160,10 @@ const Toast = ({
       <div className="toast-icon" style={{ marginRight: '12px' }}>
         {getToastIcon()}
       </div>
-      
+
       <div className="toast-content" style={{ flex: 1 }}>
-        <p style={{ 
-          margin: 0, 
+        <p style={{
+          margin: 0,
           fontSize: '14px',
           fontWeight: 500,
           color: isDarkTheme ? typeTextColors[type] : 'var(--color-dark)'
@@ -165,7 +171,7 @@ const Toast = ({
           {message}
         </p>
       </div>
-      
+
       <button
         onClick={() => {
           setVisible(false);
@@ -195,35 +201,35 @@ const Toast = ({
 // Toast context provider
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
-  
+
   const addToast = (message, type = 'success', duration = 3000) => {
     const id = Date.now();
     setToasts(prevToasts => [...prevToasts, { id, message, type, duration }]);
     return id;
   };
-  
+
   const removeToast = (id) => {
     setToasts(prevToasts => prevToasts.filter(toast => toast.id !== id));
   };
-  
+
   // Expose the showToast method globally
   useEffect(() => {
     window.showToast = addToast;
-    
+
     return () => {
       delete window.showToast;
     };
   }, []);
-  
+
   return (
     <ToastContext.Provider value={{ addToast, removeToast }}>
       {children}
-      <div 
-        className="toast-container" 
-        style={{ 
-          position: 'fixed', 
-          top: '20px', 
-          right: '20px', 
+      <div
+        className="toast-container"
+        style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
           zIndex: 9999,
           display: 'flex',
           flexDirection: 'column',
@@ -256,7 +262,7 @@ export const useToast = () => {
 // Standalone container for apps not using the context
 const ToastContainer = () => {
   const [toasts, setToasts] = useState([]);
-  
+
   // Expose a global function to add new toasts
   useEffect(() => {
     if (typeof window !== 'undefined' && !window.showToast) {
@@ -266,7 +272,7 @@ const ToastContainer = () => {
         return id;
       };
     }
-    
+
     return () => {
       // Clean up only if our function is still the one registered
       if (window.showToast && window.showToast.toString().includes('setToasts')) {
@@ -274,18 +280,18 @@ const ToastContainer = () => {
       }
     };
   }, []);
-  
+
   const removeToast = (id) => {
     setToasts(prevToasts => prevToasts.filter(toast => toast.id !== id));
   };
-  
+
   return (
-    <div 
-      className="toast-container" 
-      style={{ 
-        position: 'fixed', 
-        top: '20px', 
-        right: '20px', 
+    <div
+      className="toast-container"
+      style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
         zIndex: 9999,
         display: 'flex',
         flexDirection: 'column',

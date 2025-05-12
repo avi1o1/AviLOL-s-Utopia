@@ -16,13 +16,17 @@ const ExportDataPage = () => {
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
     const [exportSuccess, setExportSuccess] = useState(false);
 
-    // Check if the current theme is a dark theme
-    const isDarkTheme = ['nightOwl', 'darkRoast', 'obsidian', 'darkForest'].includes(currentTheme);
+    // Determine if the current theme is a dark theme by checking its text color
+    // Dark themes typically have light text colors (#F... or rgb values > 200)
+    const isDarkTheme = theme.text.startsWith('#F') || theme.text.startsWith('#f') ||
+        theme.text.startsWith('#E') || theme.text.startsWith('#e') ||
+        theme.text === '#FAFAFA' || theme.text === '#F5F5F4' || theme.text === '#F9FAFB' ||
+        theme.text === '#F8FAFC';
 
     // Determine text and background colors based on theme
     const textColor = isDarkTheme ? theme.text : theme.dark;
     const textColorLight = isDarkTheme ? theme.textLight : theme.text;
-    const backgroundColorCard = isDarkTheme ? theme.light : 'white';
+    const backgroundColorCard = isDarkTheme ? theme.dark : theme.light;
 
     // Helper function to show notifications
     const showNotification = (message, type) => {
