@@ -1,10 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import Card from '../components/ui/Card';
+import Button from '../components/ui/Button';
+import Modal from '../components/ui/Modal';
+import axios from 'axios';
+
+// Define API base URL
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 const PrivacyPage = () => {
     const { currentTheme, themes } = useTheme();
     const theme = themes[currentTheme];
+
+    // State for delete account modal and loading
+    const [showDeleteAccountModal, setShowDeleteAccountModal] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [password, setPassword] = useState('');
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+    // Check authentication status when component mounts
+    useEffect(() => {
+        const token = localStorage.getItem('userToken');
+        setIsAuthenticated(!!token);
+    }, []);
 
     // Determine if the current theme is a dark theme by checking its text color
     // Dark themes typically have light text colors (#F... or rgb values > 200)
@@ -18,6 +38,63 @@ const PrivacyPage = () => {
     const textColorLight = isDarkTheme ? theme.textLight : theme.text;
     const headingColor = theme.primary;
     const backgroundColorCard = isDarkTheme ? theme.light : 'white';
+
+    // Function to handle account deletion
+    const handleDeleteAccount = () => {
+        setShowDeleteAccountModal(true);
+    };
+
+    // Function to confirm account deletion
+    const confirmDeleteAccount = async () => {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // Get token from localStorage
+            const token = localStorage.getItem('userToken');
+            if (!token) {
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Authentication error', 'error');
+                }
+                return;
+            }
+
+            // Delete user account from API
+            await axios.delete(`${API_URL}/users/delete`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+                data: {
+                    password: password
+                }
+            });
+
+            // Clear localStorage
+            localStorage.removeItem('userToken');
+            localStorage.removeItem('journalEntries');
+
+            // Show success toast
+            if (typeof window.showToast === 'function') {
+                window.showToast('Account successfully deleted', 'success');
+            }
+
+            // Redirect to login page
+            window.location.href = '/login';
+
+        } catch (err) {
+            console.error('Error deleting account:', err);
+
+            setError(`Failed to delete account: ${err.message}`);
+
+            // Show error toast
+            if (typeof window.showToast === 'function') {
+                window.showToast(`Failed to delete account: ${err.message}`, 'error');
+            }
+        } finally {
+            setLoading(false);
+            setShowDeleteAccountModal(false);
+        }
+    };
 
     return (
         <div className="privacy-page" style={{ color: textColor, padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
@@ -153,6 +230,193 @@ const PrivacyPage = () => {
                     </p>
                 </div>
             </Card>
+
+            {/* Account Management section */}
+            <div className="account-management-section" style={{ marginTop: '3rem', marginBottom: '2rem' }}>
+                <h2 className="text-2xl font-display mb-4" style={{ color: theme.primary, borderBottom: `2px solid ${theme.primary}`, paddingBottom: '0.5rem' }}>
+                    Account Management
+                </h2>
+
+                <Card style={{
+                    backgroundColor: isDarkTheme ? theme.dark : theme.light,
+                    padding: '2rem',
+                    marginBottom: '2rem',
+                    border: `1px solid ${theme.border || theme.medium}`,
+                    borderRadius: '0.5rem'
+                }}>
+                    <h3 style={{ color: headingColor, fontSize: '1.25rem', marginBottom: '1rem' }}>Delete Your Account</h3>
+
+                    <p style={{ marginBottom: '1rem' }}>
+                        You have the right to delete your account and all associated data from our system, at anytime on your own disgression. This action is permanent and cannot be undone.
+                    </p>
+
+                    <div style={{ marginBottom: '1rem' }}>
+                        <strong>What happens when you delete your account:</strong>
+                        <ul style={{ listStyleType: 'disc', marginLeft: '1.5rem', marginTop: '0.5rem' }}>
+                            <li style={{ marginBottom: '0.5rem' }}>All your journal entries will be permanently deleted</li>
+                            <li style={{ marginBottom: '0.5rem' }}>All your diary entries will be permanently deleted</li>
+                            <li style={{ marginBottom: '0.5rem' }}>All your bucket lists and their items will be permanently deleted</li>
+                            <li style={{ marginBottom: '0.5rem' }}>Your user profile and authentication information will be permanently removed</li>
+                            <li style={{ marginBottom: '0.5rem' }}>You will be immediately logged out of all sessions</li>
+                        </ul>
+                    </div>
+
+                    {isAuthenticated && (
+                        <>
+                            <div style={{
+                                backgroundColor: isDarkTheme ? `${theme.error}30` : `${theme.error}15`,
+                                padding: '1rem',
+                                borderRadius: '0.5rem',
+                                borderLeft: `4px solid ${theme.error}`,
+                                marginBottom: '1.5rem'
+                            }}>
+                                <p style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>⚠️ Warning</p>
+                                <p>
+                                    This action is irreversible. Once deleted, your data cannot be recovered. We recommend exporting your data before deleting your account if you wish to keep a copy of your content.
+                                </p>
+                            </div>
+
+                            <div className="flex justify-center">
+                                <Button
+                                    onClick={handleDeleteAccount}
+                                    style={{
+                                        backgroundColor: theme.error || '#dc2626',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '0.75rem 1.5rem',
+                                        borderRadius: '0.375rem',
+                                        fontWeight: 'bold',
+                                        boxShadow: '3px 3px 0 rgba(0,0,0,0.2)'
+                                    }}
+                                >
+                                    Delete My Account
+                                </Button>
+                            </div>
+                        </>
+
+                    )}
+                </Card>
+            </div>
+
+            {/* Delete Account Confirmation Modal */}
+            {showDeleteAccountModal && (
+                <Modal
+                    show={showDeleteAccountModal}
+                    onClose={() => {
+                        setShowDeleteAccountModal(false);
+                        setError(null);
+                        setDeleteConfirmText('');
+                        setPassword('');
+                    }}
+                    onConfirm={() => {
+                        // Only proceed if validation passes
+                        if (deleteConfirmText === 'DELETE' && password.trim() !== '') {
+                            confirmDeleteAccount();
+                        } else {
+                            setError('Please type "DELETE" and enter your password to confirm account deletion');
+                        }
+                    }}
+                    title="Delete Account Confirmation"
+                    confirmText={loading ? "Deleting..." : "Yes, Delete My Account"}
+                    confirmVariant="dark"
+                    disableConfirm={deleteConfirmText !== 'DELETE' || !password.trim()}
+                    styles={{
+                        overlay: { backgroundColor: 'rgba(0, 0, 0, 0.75)' },
+                        modal: {
+                            backgroundColor: isDarkTheme ? theme.dark : 'white',
+                            color: textColor,
+                            borderColor: theme.error || '#dc2626'
+                        },
+                        header: { borderColor: theme.error || '#dc2626' },
+                        title: { color: theme.error || '#dc2626' },
+                        confirmButton: {
+                            backgroundColor: theme.error || '#dc2626',
+                            color: 'white',
+                            border: 'none',
+                            opacity: (deleteConfirmText !== 'DELETE' || !password.trim() || loading) ? 0.5 : 1,
+                            cursor: (deleteConfirmText !== 'DELETE' || !password.trim() || loading) ? 'not-allowed' : 'pointer'
+                        },
+                        cancelButton: {
+                            backgroundColor: isDarkTheme ? theme.medium : theme.light,
+                            color: theme.primary,
+                            borderColor: theme.primary
+                        }
+                    }}
+                >
+                    <div>
+                        <p style={{ marginBottom: '1rem', fontWeight: 'bold' }}>
+                            Are you absolutely sure you want to delete your account?
+                        </p>
+
+                        <p style={{ marginBottom: '1rem' }}>
+                            This will permanently delete:
+                        </p>
+
+                        <ul style={{ listStyleType: 'disc', marginLeft: '1.5rem', marginBottom: '1rem' }}>
+                            <li style={{ marginBottom: '0.5rem' }}>All your journal entries</li>
+                            <li style={{ marginBottom: '0.5rem' }}>All your diary entries</li>
+                            <li style={{ marginBottom: '0.5rem' }}>All your bucket lists</li>
+                            <li style={{ marginBottom: '0.5rem' }}>Your user profile and authentication information</li>
+                        </ul>
+
+                        <p style={{ marginBottom: '1rem', fontStyle: 'italic' }}>
+                            This action cannot be undone. Once deleted, your data cannot be recovered.
+                        </p>
+
+                        {error && (
+                            <div style={{
+                                backgroundColor: `${theme.error}20`,
+                                padding: '0.75rem',
+                                borderRadius: '0.375rem',
+                                marginBottom: '1rem',
+                                color: theme.error
+                            }}>
+                                {error}
+                            </div>
+                        )}
+
+                        <p style={{ fontWeight: 'bold' }}>
+                            Please type "DELETE" to confirm:
+                        </p>
+                        <input
+                            type="text"
+                            className="neo-brutal-input w-full"
+                            placeholder="Type DELETE here"
+                            style={{
+                                backgroundColor: isDarkTheme ? theme.dark : 'white',
+                                color: textColor,
+                                borderColor: theme.border || theme.medium,
+                                padding: '0.5rem',
+                                borderRadius: '0.375rem',
+                                marginBottom: '1rem'
+                            }}
+                            value={deleteConfirmText}
+                            onChange={(e) => setDeleteConfirmText(e.target.value)}
+                            disabled={loading}
+                        />
+
+                        <p style={{ fontWeight: 'bold', marginTop: '1rem' }}>
+                            Please enter your password to confirm:
+                        </p>
+                        <input
+                            type="password"
+                            className="neo-brutal-input w-full"
+                            placeholder="Enter your password"
+                            style={{
+                                backgroundColor: isDarkTheme ? theme.dark : 'white',
+                                color: textColor,
+                                borderColor: theme.border || theme.medium,
+                                padding: '0.5rem',
+                                borderRadius: '0.375rem',
+                                marginBottom: '1rem'
+                            }}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            disabled={loading}
+                        />
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 };

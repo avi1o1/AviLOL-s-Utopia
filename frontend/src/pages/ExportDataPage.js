@@ -195,7 +195,7 @@ const ExportDataPage = () => {
 
                     <div style={{
                         padding: '1rem',
-                        backgroundColor: `${theme.accent}15`,
+                        backgroundColor: `${theme.secondary}15`,
                         borderRadius: '8px',
                         marginBottom: '1.5rem'
                     }}>
@@ -216,9 +216,9 @@ const ExportDataPage = () => {
                                     display: 'flex',
                                     alignItems: 'center',
                                     padding: '0.75rem 1rem',
-                                    backgroundColor: `${theme.accent}10`,
+                                    backgroundColor: `${theme.secondary}10`,
                                     borderRadius: '6px',
-                                    border: `1px solid ${theme.accent}30`,
+                                    border: `1px solid ${theme.secondary}30`,
                                     animation: loading ? `pulse 1.5s ease-in-out ${index * 0.2}s infinite` : 'none'
                                 }}>
                                     <span style={{ fontSize: '1.2rem', marginRight: '0.75rem' }}>{item.icon}</span>
@@ -308,7 +308,7 @@ const ExportDataPage = () => {
                     style={{
                         backgroundColor: backgroundColorCard,
                         padding: '2rem',
-                        borderLeft: `4px solid ${theme.secondary}`,
+                        borderLeft: `4px solid ${theme.primary}`,
                         borderRadius: '8px',
                         transition: 'transform 0.3s ease',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
@@ -324,7 +324,7 @@ const ExportDataPage = () => {
                         borderBottom: `1px solid ${isDarkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`
                     }}>
                         <div style={{
-                            backgroundColor: `${theme.secondary}20`,
+                            backgroundColor: `${theme.primary}20`,
                             borderRadius: '12px',
                             width: '48px',
                             height: '48px',
@@ -334,13 +334,13 @@ const ExportDataPage = () => {
                             marginRight: '1rem',
                             fontSize: '1.5rem'
                         }}>🔍</div>
-                        <h2 style={{ color: theme.secondary, marginBottom: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                        <h2 style={{ color: theme.primary, marginBottom: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>
                             About Your Data
                         </h2>
                     </div>
 
                     <div style={{ marginBottom: '1.5rem' }}>
-                        <h3 style={{ color: theme.secondary, fontSize: '1.2rem', marginBottom: '0.75rem' }}>
+                        <h3 style={{ color: theme.primary, fontSize: '1.2rem', marginBottom: '0.75rem' }}>
                             How can you use your exported data:
                         </h3>
 
@@ -362,9 +362,9 @@ const ExportDataPage = () => {
                                     padding: '0.5rem 0'
                                 }}>
                                     <span style={{
-                                        fontSize: '1.25rem',
+                                        fontSize: '1rem',
                                         marginRight: '0.75rem',
-                                        backgroundColor: `${theme.accent}20`,
+                                        backgroundColor: `${theme.secondary}20`,
                                         width: '32px',
                                         height: '32px',
                                         borderRadius: '50%',
@@ -384,15 +384,15 @@ const ExportDataPage = () => {
                     <div style={{
                         padding: '1rem',
                         borderRadius: '8px',
-                        backgroundColor: `${theme.accent}15`,
-                        borderLeft: `4px solid ${theme.accent}`,
+                        backgroundColor: `${theme.secondary}15`,
+                        borderLeft: `4px solid ${theme.secondary}`,
                         marginTop: 'auto'
                     }}>
-                        <h3 style={{ color: theme.secondary, fontSize: '1.1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <h3 style={{ color: theme.primary, fontSize: '1.1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <span>🔒</span> Security Advisory
                         </h3>
                         <p style={{ fontStyle: 'italic', color: textColorLight, margin: 0 }}>
-                            This file contains your personal information. Please store it securely
+                            This file might contain your personal information. Please store it securely
                             and avoid sharing it on public platforms.
                         </p>
                     </div>
@@ -404,7 +404,7 @@ const ExportDataPage = () => {
                 style={{
                     backgroundColor: backgroundColorCard,
                     padding: '2rem',
-                    borderLeft: `4px solid ${theme.accent}`,
+                    borderLeft: `4px solid ${theme.secondary}`,
                     borderRadius: '8px',
                     transition: 'transform 0.3s ease',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
@@ -419,7 +419,7 @@ const ExportDataPage = () => {
                     borderBottom: `1px solid ${isDarkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`
                 }}>
                     <div style={{
-                        backgroundColor: `${theme.accent}20`,
+                        backgroundColor: `${theme.secondary}20`,
                         borderRadius: '12px',
                         width: '48px',
                         height: '48px',
@@ -429,14 +429,14 @@ const ExportDataPage = () => {
                         marginRight: '1rem',
                         fontSize: '1.5rem'
                     }}>📝</div>
-                    <h2 style={{ color: theme.accent, marginBottom: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                    <h2 style={{ color: theme.secondary, marginBottom: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>
                         Export Format
                     </h2>
                 </div>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem' }}>
                     <div style={{ flex: '1 1 300px' }}>
-                        <h3 style={{ color: theme.accent, fontSize: '1.2rem', marginBottom: '0.75rem' }}>
+                        <h3 style={{ color: theme.secondary, fontSize: '1.2rem', marginBottom: '0.75rem' }}>
                             What's included in your export:
                         </h3>
 
@@ -459,11 +459,11 @@ const ExportDataPage = () => {
                     <div style={{ flex: '1 1 300px' }}>
                         <div style={{
                             padding: '1rem',
-                            backgroundColor: `${theme.accent}10`,
+                            backgroundColor: `${theme.secondary}10`,
                             borderRadius: '6px',
-                            border: `1px solid ${theme.accent}30`
+                            border: `1px solid ${theme.secondary}30`
                         }}>
-                            <h4 style={{ color: theme.accent, marginTop: 0, marginBottom: '0.5rem' }}>Sample Data Structure</h4>
+                            <h4 style={{ color: theme.secondary, marginTop: 0, marginBottom: '0.5rem' }}>Sample Data Structure</h4>
                             <pre style={{
                                 backgroundColor: isDarkTheme ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)',
                                 padding: '0.75rem',

@@ -31,8 +31,8 @@ const safeFormat = (date, formatStr) => {
 };
 
 const JournalPage = () => {
-    const { currentTheme, themes } = useTheme();
-    const theme = themes[currentTheme];
+  const { currentTheme, themes } = useTheme();
+  const theme = themes[currentTheme];
 
   // Determine if the current theme is a dark theme by checking its text color
   // Dark themes typically have light text colors (#F... or rgb values > 200)

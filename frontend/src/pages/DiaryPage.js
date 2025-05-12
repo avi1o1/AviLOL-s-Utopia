@@ -741,7 +741,7 @@ const DiaryPage = () => {
                   variant="primary"
                   style={{
                     backgroundColor: theme.primary,
-                    color: theme.secondary,
+                    color: "white",
                     border: 'none'
                   }}
                 >

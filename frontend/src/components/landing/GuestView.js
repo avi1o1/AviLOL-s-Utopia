@@ -21,6 +21,8 @@ const GuestView = () => {
     const textColorLight = isDarkTheme ? theme.textLight : theme.text;
     const backgroundColorMain = isDarkTheme ? theme.dark : theme.light;
     const backgroundColorCard = isDarkTheme ? theme.dark : theme.light;
+    const contrastColor = isDarkTheme ? theme.light : theme.dark;
+    const highlightColor = isDarkTheme ? theme.light : theme.dark;
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -51,7 +53,6 @@ const GuestView = () => {
                         color: theme.primary,
                         marginBottom: '1rem',
                         fontWeight: 800,
-                        textShadow: isDarkTheme ? `2px 2px 0 rgba(0,0,0,0.5)` : `2px 2px 0 rgba(0,0,0,0.1)`
                     }}>
                         Your Digital Sanctuary
                     </h1>
@@ -75,21 +76,21 @@ const GuestView = () => {
                     }}>
                         <Link to="/signup" style={{
                             backgroundColor: theme.primary,
-                            color: 'white',
+                            color: highlightColor,
                             padding: '0.75rem 1.5rem',
                             borderRadius: '8px',
                             fontWeight: 'bold',
                             textDecoration: 'none',
                             fontSize: '1.1rem',
                             border: `3px solid ${theme.dark}`,
-                            boxShadow: `5px 5px 0 rgba(0,0,0,0.2)`,
+                            boxShadow: `5px 5px 0 ${theme.dark}40`,
                             transition: 'all 0.2s ease'
                         }}>
-                            Get Started — It's Free
+                            Get Started - It's Free
                         </Link>
 
                         <Link to="/login" style={{
-                            backgroundColor: isDarkTheme ? theme.light : 'white',
+                            backgroundColor: isDarkTheme ? theme.light : highlightColor,
                             color: theme.primary,
                             padding: '0.75rem 1.5rem',
                             borderRadius: '8px',
@@ -97,7 +98,7 @@ const GuestView = () => {
                             textDecoration: 'none',
                             fontSize: '1.1rem',
                             border: `3px solid ${theme.primary}`,
-                            boxShadow: `5px 5px 0 rgba(0,0,0,0.2)`,
+                            boxShadow: `5px 5px 0 ${theme.dark}40`,
                             transition: 'all 0.2s ease'
                         }}>
                             Sign In
@@ -113,7 +114,7 @@ const GuestView = () => {
                     position: 'relative',
                     marginTop: '2rem',
                     borderRadius: '12px',
-                    boxShadow: isDarkTheme ? `0 10px 30px rgba(0,0,0,0.5)` : `0 10px 30px rgba(0,0,0,0.2)`,
+                    boxShadow: isDarkTheme ? `0 10px 30px ${theme.dark}80` : `0 10px 30px ${theme.dark}40`,
                     overflow: 'hidden',
                     border: `3px solid ${theme.dark}`
                 }}>
@@ -144,18 +145,18 @@ const GuestView = () => {
                                 backgroundColor: backgroundColorCard,
                                 borderRadius: '8px',
                                 padding: '1.5rem',
-                                boxShadow: isDarkTheme ? `0 5px 15px rgba(0,0,0,0.3)` : `0 5px 15px rgba(0,0,0,0.1)`,
+                                boxShadow: isDarkTheme ? `0 5px 15px ${theme.dark}60` : `0 5px 15px ${theme.dark}20`,
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: '1rem',
                                 position: 'relative',
                                 overflow: 'hidden'
                             }}>
-                                <div style={{ width: '100%', height: '3rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '4px' }}></div>
-                                <div style={{ width: '80%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '4px' }}></div>
-                                <div style={{ width: '90%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '4px' }}></div>
-                                <div style={{ width: '75%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '4px' }}></div>
-                                <div style={{ width: '85%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '4px' }}></div>
+                                <div style={{ width: '100%', height: '3rem', backgroundColor: isDarkTheme ? theme.dark : theme.light, borderRadius: '4px' }}></div>
+                                <div style={{ width: '80%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : theme.light, borderRadius: '4px' }}></div>
+                                <div style={{ width: '90%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : theme.light, borderRadius: '4px' }}></div>
+                                <div style={{ width: '75%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : theme.light, borderRadius: '4px' }}></div>
+                                <div style={{ width: '85%', height: '2rem', backgroundColor: isDarkTheme ? theme.dark : theme.light, borderRadius: '4px' }}></div>
                             </div>
                         </div>
 
@@ -177,10 +178,10 @@ const GuestView = () => {
                                 backgroundColor: backgroundColorCard,
                                 borderRadius: '8px',
                                 padding: '1.5rem',
-                                boxShadow: isDarkTheme ? `0 5px 15px rgba(0,0,0,0.3)` : `0 5px 15px rgba(0,0,0,0.1)`,
+                                boxShadow: isDarkTheme ? `0 5px 15px ${theme.dark}60` : `0 5px 15px ${theme.dark}20`,
                                 backgroundImage: isDarkTheme
-                                    ? `linear-gradient(${theme.dark} 1px, transparent 1px), linear-gradient(90deg, ${theme.dark} 1px, transparent 1px)`
-                                    : `linear-gradient(#f1f1f1 1px, transparent 1px), linear-gradient(90deg, #f1f1f1 1px, transparent 1px)`,
+                                    ? `linear-gradient(${theme.light}30 1px, transparent 1px), linear-gradient(90deg, ${theme.light}30 1px, transparent 1px)`
+                                    : `linear-gradient(${theme.dark}10 1px, transparent 1px), linear-gradient(90deg, ${theme.dark}10 1px, transparent 1px)`,
                                 backgroundSize: '20px 20px',
                                 position: 'relative',
                                 overflow: 'hidden'
@@ -195,11 +196,11 @@ const GuestView = () => {
                                     gap: '0.5rem'
                                 }}>
                                     <div style={{ fontSize: '1.2rem', color: textColor, fontWeight: 'bold' }}>May 8, 2025</div>
-                                    <div style={{ width: '100%', height: '2px', backgroundColor: isDarkTheme ? theme.light : '#ddd' }}></div>
-                                    <div style={{ width: '90%', height: '1rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '2px', marginTop: '0.5rem' }}></div>
-                                    <div style={{ width: '80%', height: '1rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '2px' }}></div>
-                                    <div style={{ width: '85%', height: '1rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '2px' }}></div>
-                                    <div style={{ width: '75%', height: '1rem', backgroundColor: isDarkTheme ? theme.dark : '#f5f5f5', borderRadius: '2px' }}></div>
+                                    <div style={{ width: '100%', height: '2px', backgroundColor: isDarkTheme ? theme.light : theme.dark + '20' }}></div>
+                                    <div style={{ width: '90%', height: '1rem', backgroundColor: isDarkTheme ? theme.light + '30' : theme.dark + '10', borderRadius: '2px', marginTop: '0.5rem' }}></div>
+                                    <div style={{ width: '80%', height: '1rem', backgroundColor: isDarkTheme ? theme.light + '30' : theme.dark + '10', borderRadius: '2px' }}></div>
+                                    <div style={{ width: '85%', height: '1rem', backgroundColor: isDarkTheme ? theme.light + '30' : theme.dark + '10', borderRadius: '2px' }}></div>
+                                    <div style={{ width: '75%', height: '1rem', backgroundColor: isDarkTheme ? theme.light + '30' : theme.dark + '10', borderRadius: '2px' }}></div>
                                 </div>
                             </div>
                         </div>
@@ -222,7 +223,7 @@ const GuestView = () => {
                                 backgroundColor: backgroundColorCard,
                                 borderRadius: '8px',
                                 padding: '1.5rem',
-                                boxShadow: isDarkTheme ? `0 5px 15px rgba(0,0,0,0.3)` : `0 5px 15px rgba(0,0,0,0.1)`,
+                                boxShadow: isDarkTheme ? `0 5px 15px ${theme.dark}60` : `0 5px 15px ${theme.dark}20`,
                                 display: 'flex',
                                 flexWrap: 'wrap',
                                 gap: '1rem',
@@ -262,11 +263,11 @@ const GuestView = () => {
                                 width: '12px',
                                 height: '12px',
                                 borderRadius: '50%',
-                                backgroundColor: i === animationIndex ? theme.primary : 'rgba(255,255,255,0.7)',
+                                backgroundColor: i === animationIndex ? theme.primary : theme.light + '80',
                                 border: 'none',
                                 padding: 0,
                                 cursor: 'pointer',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                boxShadow: `0 2px 4px ${theme.dark}40`
                             }} />
                         ))}
                     </div>
@@ -289,15 +290,15 @@ const GuestView = () => {
                         <div key={i} style={{
                             flex: '1 1 250px',
                             padding: '1.5rem',
-                            backgroundColor: isDarkTheme ? theme.light : 'white',
-                            color: isDarkTheme ? theme.dark : theme.text,
+                            backgroundColor: isDarkTheme ? theme.light + '20' : highlightColor,
+                            color: isDarkTheme ? theme.light : theme.text,
                             borderRadius: '8px',
-                            boxShadow: isDarkTheme ? `0 5px 15px rgba(0,0,0,0.3)` : `0 5px 15px rgba(0,0,0,0.1)`,
+                            boxShadow: isDarkTheme ? `0 5px 15px ${theme.dark}60` : `0 5px 15px ${theme.dark}20`,
                             position: 'relative',
                             border: `2px solid ${theme.primary}`
                         }}>
                             <div style={{ fontSize: '2rem', color: theme.primary, position: 'absolute', top: '1rem', left: '1rem' }}>"</div>
-                            <p style={{ marginTop: '1.5rem', marginBottom: '1rem', fontStyle: 'italic' }}>{review.text}</p>
+                            <p style={{ marginTop: '1.5rem', color: theme.text, marginBottom: '1rem', fontStyle: 'italic' }}>{review.text}</p>
                             <div style={{ fontWeight: 'bold', color: theme.primary }}>{review.name}</div>
                         </div>
                     ))}
@@ -305,7 +306,7 @@ const GuestView = () => {
             </section>
 
             {/* Features Section with Interactive Elements */}
-            <section style={{ padding: '5rem 2rem', background: isDarkTheme ? theme.dark : 'white', color: textColor }}>
+            <section style={{ padding: '5rem 2rem', background: isDarkTheme ? theme.dark : highlightColor, color: textColor }}>
                 <h2 style={{
                     textAlign: 'center',
                     color: theme.primary,
@@ -450,15 +451,15 @@ const GuestView = () => {
                                 height: '60px',
                                 borderRadius: '50%',
                                 backgroundColor: theme.primary,
-                                color: 'white',
+                                color: highlightColor,
                                 fontWeight: 'bold',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 fontSize: '1.5rem',
                                 flexShrink: 0,
-                                border: isDarkTheme ? `3px solid ${theme.light}` : '3px solid white',
-                                boxShadow: isDarkTheme ? `0 5px 15px rgba(0,0,0,0.4)` : `0 5px 15px rgba(0,0,0,0.2)`
+                                border: isDarkTheme ? `3px solid ${theme.light}` : `3px solid ${highlightColor}`,
+                                boxShadow: isDarkTheme ? `0 5px 15px ${theme.dark}80` : `0 5px 15px ${theme.dark}40`
                             }}>
                                 {step.step}
                             </div>
@@ -480,13 +481,13 @@ const GuestView = () => {
             <section style={{
                 padding: '5rem 2rem',
                 background: theme.primary,
-                color: 'white',
+                color: highlightColor,
                 textAlign: 'center'
             }}>
                 <h2 style={{
                     fontSize: 'clamp(2rem, 3vw, 2.5rem)',
                     marginBottom: '1.5rem',
-                    color: 'white'
+                    color: highlightColor
                 }}>Ready to Start Your Digital Sanctuary?</h2>
 
                 <p style={{
@@ -505,15 +506,15 @@ const GuestView = () => {
                     flexWrap: 'wrap'
                 }}>
                     <Link to="/signup" style={{
-                        backgroundColor: 'white',
+                        backgroundColor: highlightColor,
                         color: theme.primary,
                         padding: '0.75rem 1.5rem',
                         borderRadius: '8px',
                         fontWeight: 'bold',
                         textDecoration: 'none',
                         fontSize: '1.1rem',
-                        border: `3px solid white`,
-                        boxShadow: `5px 5px 0 rgba(0,0,0,0.2)`,
+                        border: `3px solid ${highlightColor}`,
+                        boxShadow: `5px 5px 0 ${theme.dark}40`,
                         transition: 'all 0.2s ease'
                     }}>
                         Create Free Account
@@ -521,14 +522,14 @@ const GuestView = () => {
 
                     <Link to="/login" style={{
                         backgroundColor: 'transparent',
-                        color: 'white',
+                        color: highlightColor,
                         padding: '0.75rem 1.5rem',
                         borderRadius: '8px',
                         fontWeight: 'bold',
                         textDecoration: 'none',
                         fontSize: '1.1rem',
-                        border: `3px solid white`,
-                        boxShadow: `5px 5px 0 rgba(0,0,0,0.2)`,
+                        border: `3px solid ${highlightColor}`,
+                        boxShadow: `5px 5px 0 ${theme.dark}40`,
                         transition: 'all 0.2s ease'
                     }}>
                         Sign In

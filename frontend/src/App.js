@@ -57,6 +57,7 @@ function App() {
     localStorage.removeItem('userData');
     setIsAuthenticated(false);
     setMobileMenuOpen(false); // Close mobile menu when logging out
+    window.location.href = '/'; // Redirect to homepage after logout
   };
 
   // Function to toggle mobile menu
@@ -89,7 +90,7 @@ function App() {
                   <span></span>
                 </button>
 
-                <nav className={`nav-links ${mobileMenuOpen ? 'mobile-menu-open' : ''}`}>
+                <nav className={`nav-links ${mobileMenuOpen ? 'mobile-menu-open' : ''}`} style={{ border: "none" }}>
                   {isAuthenticated ? (
                     <>
                       <NavLink to="/diary" className={({ isActive }) =>
@@ -146,8 +147,6 @@ function App() {
                   <Route path="/signup" element={<SignupPage setIsAuthenticated={setIsAuthenticated} />} />
                   <Route path="/themes" element={<ThemesPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
-                  <Route path="/export" element={<ExportDataPage />} />
-                  <Route path="/import" element={<ImportDataPage />} />
 
                   {/* Protected routes */}
                   <Route path="/diary" element={
@@ -165,6 +164,16 @@ function App() {
                       <BucketsPage />
                     </ProtectedRoute>
                   } />
+                  <Route path="/export" element={
+                    <ProtectedRoute>
+                      <ExportDataPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/import" element={
+                    <ProtectedRoute>
+                      <ImportDataPage />
+                    </ProtectedRoute>
+                  } />
                 </Routes>
               </div>
             </main>
@@ -174,9 +183,13 @@ function App() {
                 <div className="footer-content">
                   <p className="font-display">&copy; {currentYear} YouTopia</p>
                   <div className="footer-links">
+                    {isAuthenticated ? (
+                      <>
+                        <Link to="/import" className="footer-link">Import Data</Link>
+                        <Link to="/export" className="footer-link">Export Data</Link>
+                      </>
+                    ) : null}
                     <Link to="/privacy" className="footer-link">Privacy</Link>
-                    <Link to="/export" className="footer-link">Export Data</Link>
-                    <Link to="/import" className="footer-link">Import Data</Link>
                   </div>
                 </div>
               </div>

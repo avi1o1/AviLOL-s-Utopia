@@ -6,6 +6,7 @@ import Input from '../components/ui/Input';
 import Textarea from '../components/ui/Textarea';
 import Modal from '../components/ui/Modal';
 import { Toast } from '../components/ui/Toast';
+import EmojiPicker from 'emoji-picker-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -17,6 +18,7 @@ const BucketsPage = () => {
     const [buckets, setBuckets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [formError, setFormError] = useState(''); // Add state for form-specific errors
     const [selectedBucket, setSelectedBucket] = useState(null);
     const [showAddBucketModal, setShowAddBucketModal] = useState(false);
     const [showAddItemModal, setShowAddItemModal] = useState(false);
@@ -26,6 +28,7 @@ const BucketsPage = () => {
     const [bucketToDelete, setBucketToDelete] = useState(null);
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
     const [openBucketMenuId, setOpenBucketMenuId] = useState(null);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
     // Ref for detecting clicks outside menus
     const menuRefs = useRef({});
@@ -53,6 +56,20 @@ const BucketsPage = () => {
 
     // Collection of possible bucket icons
     const bucketIcons = ['📝', '🎬', '📚', '🎵', '🍔', '✈️', '💡', '🎮', '📷', '🏆'];
+
+    // Handle emoji click for new bucket
+    const onEmojiClick = (emojiData, event) => {
+        setNewBucket({ ...newBucket, icon: emojiData.emoji });
+        setShowEmojiPicker(false);
+    };
+
+    // Handle emoji click for editing bucket
+    const onEditEmojiClick = (emojiData, event) => {
+        if (editingBucket) {
+            setEditingBucket({ ...editingBucket, icon: emojiData.emoji });
+        }
+        setShowEmojiPicker(false);
+    };
 
     // Handle clicks outside the menu
     useEffect(() => {
@@ -280,7 +297,7 @@ const BucketsPage = () => {
         e.preventDefault();
 
         if (!newBucket.name.trim()) {
-            showNotification('Please enter a bucket name', 'error');
+            setFormError('Please enter a bucket name');
             return;
         }
 
@@ -288,10 +305,11 @@ const BucketsPage = () => {
             const token = localStorage.getItem('userToken');
 
             if (!token) {
-                showNotification('You must be logged in to create buckets', 'error');
+                setFormError('You must be logged in to create buckets');
                 return;
             }
 
+            setFormError(''); // Clear any existing form errors
             const response = await fetch(`${API_URL}/buckets`, {
                 method: 'POST',
                 headers: {
@@ -304,6 +322,7 @@ const BucketsPage = () => {
             const data = await response.json();
 
             if (!response.ok) {
+                setFormError(data.message || 'Error creating bucket');
                 throw new Error(data.message || 'Error creating bucket');
             }
 
@@ -312,9 +331,11 @@ const BucketsPage = () => {
             setBuckets(updatedBuckets);
             setNewBucket({ name: '', description: '', icon: '📝', color: '#3498db' });
             setShowAddBucketModal(false);
+            setFormError(''); // Clear form error on success
             showNotification('Bucket created successfully!', 'success');
         } catch (err) {
             console.error('Error creating bucket:', err);
+            // The form error is already set above, so we just show the notification as a backup
             showNotification(err.message, 'error');
         }
     };
@@ -1141,30 +1162,54 @@ const BucketsPage = () => {
                         </label>
                         <div style={{
                             display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '0.5rem'
+                            flexDirection: 'column',
+                            gap: '0.75rem'
                         }}>
-                            {bucketIcons.map(icon => (
-                                <button
-                                    key={icon}
-                                    type="button"
-                                    onClick={() => setNewBucket({ ...newBucket, icon })}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '1rem'
+                            }}>
+                                <div
                                     style={{
-                                        width: '40px',
-                                        height: '40px',
+                                        width: '50px',
+                                        height: '50px',
                                         borderRadius: '50%',
-                                        border: icon === newBucket.icon ? `2px solid ${theme.primary}` : '2px solid transparent',
-                                        backgroundColor: icon === newBucket.icon ? `${theme.primary}20` : backgroundColorCard,
-                                        fontSize: '1.25rem',
+                                        backgroundColor: newBucket.color || theme.primary,
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
+                                        fontSize: '1.75rem'
+                                    }}
+                                >
+                                    {newBucket.icon}
+                                </div>
+                                <Button
+                                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                    style={{
+                                        backgroundColor: backgroundColorCard,
+                                        color: textColor,
+                                        border: `1px solid ${textColorLight}50`,
+                                        padding: '0.5rem 1rem',
+                                        borderRadius: '0.25rem',
                                         cursor: 'pointer'
                                     }}
                                 >
-                                    {icon}
-                                </button>
-                            ))}
+                                    {showEmojiPicker ? 'Close Emoji Picker' : 'Choose Emoji'}
+                                </Button>
+                            </div>
+
+                            {showEmojiPicker && (
+                                <div style={{ marginTop: '0.5rem' }}>
+                                    <EmojiPicker
+                                        onEmojiClick={onEmojiClick}
+                                        searchPlaceHolder="Search emojis..."
+                                        width="100%"
+                                        height={350}
+                                        theme={isDarkTheme ? 'dark' : 'light'}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1236,6 +1281,11 @@ const BucketsPage = () => {
                             </label>
                         </div>
                     </div>
+                    {formError && (
+                        <div style={{ color: 'var(--color-error)', marginBottom: '1rem' }}>
+                            {formError}
+                        </div>
+                    )}
                 </form>
             </Modal>
 
@@ -1410,6 +1460,29 @@ const BucketsPage = () => {
                                     {icon}
                                 </button>
                             ))}
+                            <button
+                                type="button"
+                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '50%',
+                                    border: '2px solid transparent',
+                                    backgroundColor: backgroundColorCard,
+                                    fontSize: '1.25rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                😊
+                            </button>
+                            {showEmojiPicker && (
+                                <div style={{ position: 'absolute', zIndex: 1000 }}>
+                                    <EmojiPicker onEmojiClick={onEditEmojiClick} />
+                                </div>
+                            )}
                         </div>
                     </div>
 

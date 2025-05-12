@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -9,6 +9,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const ImportDataPage = () => {
     const { currentTheme, themes } = useTheme();
     const theme = themes[currentTheme];
+    const fileDropAreaRef = useRef(null);
 
     // State variables
     const [loading, setLoading] = useState(false);
@@ -108,6 +109,58 @@ const ImportDataPage = () => {
             setImportFile(file);
             setError(null);
             setValidationResult(null);
+        }
+    };
+
+    // Drag and drop handlers
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (fileDropAreaRef.current) {
+            fileDropAreaRef.current.style.borderColor = theme.primary;
+            fileDropAreaRef.current.style.backgroundColor = `${theme.accent}35`;
+        }
+    };
+
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (fileDropAreaRef.current) {
+            fileDropAreaRef.current.style.borderColor = `${theme.accent}50`;
+            fileDropAreaRef.current.style.backgroundColor = `${theme.accent}15`;
+        }
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (fileDropAreaRef.current) {
+            fileDropAreaRef.current.style.borderColor = `${theme.accent}50`;
+            fileDropAreaRef.current.style.backgroundColor = `${theme.accent}15`;
+        }
+
+        const droppedFiles = e.dataTransfer.files;
+        if (droppedFiles && droppedFiles.length > 0) {
+            const file = droppedFiles[0];
+
+            if (file.type !== 'application/json') {
+                showNotification('Please select a JSON file', 'error');
+                return;
+            }
+
+            setImportFile(file);
+            setError(null);
+            setValidationResult(null);
+
+            // Update the file input element to match the dropped file
+            const fileInput = document.getElementById('import-file');
+            if (fileInput) {
+                // Create a DataTransfer object to set the files property
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                fileInput.files = dataTransfer.files;
+            }
         }
     };
 
@@ -213,12 +266,43 @@ const ImportDataPage = () => {
             }
 
             const data = await response.json();
+            console.log('Import response:', data); // Debug log to see what's coming back
 
-            // Store the import statistics
-            setImportStats(data.stats);
+            // Process statistics from server response
+            const stats = {
+                // Get journal counts - handle both nested and flat response formats
+                totalJournals: data.stats?.journals?.imported ||
+                    data.stats?.totalJournals ||
+                    data.totalJournals || 0,
+
+                // Get diary counts
+                totalDiaries: data.stats?.diaries?.imported ||
+                    data.stats?.totalDiaries ||
+                    data.totalDiaries || 0,
+
+                // Get bucket counts (sum of new and merged buckets)
+                totalBuckets: (data.stats?.buckets?.new + data.stats?.buckets?.merged) ||
+                    data.stats?.totalBuckets ||
+                    data.totalBuckets || 0,
+
+                // Get bucket items count
+                totalBucketItems: data.stats?.buckets?.items ||
+                    data.stats?.totalBucketItems ||
+                    data.totalBucketItems || 0
+            };
+
+            // Force numeric values to ensure proper display
+            Object.keys(stats).forEach(key => {
+                stats[key] = parseInt(stats[key], 10) || 0;
+            });
+
+            console.log('Processed stats:', stats); // Debug log for processed stats
+
+            setImportStats(stats);
 
             setImportSuccess(true);
-            showNotification(data.message || 'Your data has been imported successfully!', 'success');
+            // Simplified toast message
+            showNotification('Data imported successfully', 'success');
 
             // Clear the file input
             setImportFile(null);
@@ -236,8 +320,8 @@ const ImportDataPage = () => {
 
     // Information items for import description
     const importNotes = [
-        { icon: '🔄', text: 'Only properly formatted YouTopia exports are supported' },
-        { icon: '🧩', text: 'Existing data will be merged with imported data' },
+        { icon: '🔄', text: 'Both YouTopia exports and custom JSON files can be imported if they match the required structure' },
+        { icon: '🧩', text: 'Existing data will be merged with imported data based on content similarity and dates' },
         { icon: '🔍', text: 'Data is validated before import to ensure compatibility' },
         { icon: '🔒', text: 'Your username will not change during import' }
     ];
@@ -312,31 +396,148 @@ const ImportDataPage = () => {
                     </p>
 
                     <div style={{
-                        marginBottom: '1.5rem'
+                        padding: '1rem',
+                        borderRadius: '8px',
+                        backgroundColor: `${theme.secondary}15`,
+                        borderLeft: `4px solid ${theme.secondary}`,
+                        marginBottom: '1.5rem',
                     }}>
-                        <input
-                            type="file"
-                            id="import-file"
-                            accept=".json"
-                            onChange={handleFileChange}
+                        <h3 style={{ color: theme.primary, fontSize: '1.1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>⚠️</span> Caution
+                        </h3>
+                        <p style={{ fontStyle: 'italic', color: textColorLight, margin: 0 }}>
+                            Only import files that were exported from YouTopia or custom JSON files that match the
+                            required structure. Importing incorrectly formatted files may cause errors.
+                        </p>
+                    </div>
+
+                    <div
+                        ref={fileDropAreaRef}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        style={{
+                            marginBottom: '1.5rem'
+                        }}>
+                        <label
+                            htmlFor="import-file"
                             style={{
-                                backgroundColor: `${theme.accent}15`,
-                                padding: '1rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                backgroundColor: `${theme.secondary}15`,
+                                padding: '1.5rem',
                                 borderRadius: '0.5rem',
-                                width: '100%',
-                                border: `1px solid ${theme.accent}30`,
-                                color: textColor
+                                border: `2px dashed ${theme.secondary}50`,
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                minHeight: '120px',
+                                textAlign: 'center'
                             }}
-                        />
-                        {importFile && (
+                            onMouseOver={(e) => {
+                                e.currentTarget.style.borderColor = theme.accent;
+                                e.currentTarget.style.backgroundColor = `${theme.accent}25`;
+                            }}
+                            onMouseOut={(e) => {
+                                e.currentTarget.style.borderColor = `${theme.accent}50`;
+                                e.currentTarget.style.backgroundColor = `${theme.accent}15`;
+                            }}
+                        >
                             <div style={{
-                                marginTop: '0.75rem',
-                                fontStyle: 'italic',
-                                color: textColorLight
+                                fontSize: '2rem',
+                                marginBottom: '0.75rem',
+                                color: theme.primary
                             }}>
-                                Selected file: {importFile.name}
+                                📁
                             </div>
-                        )}
+
+                            <div style={{
+                                fontWeight: 'bold',
+                                marginBottom: '0.5rem',
+                                color: theme.primary
+                            }}>
+                                Choose JSON File
+                            </div>
+
+                            <div style={{
+                                fontSize: '0.875rem',
+                                color: textColorLight,
+                                marginBottom: '0.5rem'
+                            }}>
+                                or drag and drop file here
+                            </div>
+
+                            {!importFile && (
+                                <div style={{
+                                    fontSize: '0.75rem',
+                                    padding: '0.25rem 0.75rem',
+                                    backgroundColor: `${theme.primary}25`,
+                                    borderRadius: '1rem',
+                                    marginTop: '0.5rem'
+                                }}>
+                                    .json format only
+                                </div>
+                            )}
+
+                            <input
+                                type="file"
+                                id="import-file"
+                                accept=".json"
+                                onChange={handleFileChange}
+                                style={{
+                                    position: 'absolute',
+                                    left: '-9999px',
+                                    opacity: 0,
+                                }}
+                            />
+
+                            {importFile && (
+                                <div style={{
+                                    marginTop: '0.75rem',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    backgroundColor: `${theme.primary}15`,
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: '0.5rem',
+                                    width: '80%'
+                                }}>
+                                    <span style={{ fontSize: '1.25rem' }}>📄</span>
+                                    <span style={{
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap'
+                                    }}>
+                                        {importFile.name}
+                                    </span>
+                                    <span
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setImportFile(null);
+                                            document.getElementById('import-file').value = '';
+                                            setValidationResult(null);
+                                        }}
+                                        style={{
+                                            cursor: 'pointer',
+                                            marginLeft: 'auto',
+                                            fontSize: '1.25rem',
+                                            color: theme.secondary,
+                                            padding: '0.25rem',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        ✖️
+                                    </span>
+                                </div>
+                            )}
+                        </label>
                     </div>
 
                     <div style={{
@@ -422,40 +623,6 @@ const ImportDataPage = () => {
                         </div>
                     )}
 
-                    {validationResult && validationResult.isValid && (
-                        <div style={{
-                            backgroundColor: '#ECFDF5',
-                            color: '#10B981',
-                            padding: '1rem',
-                            borderRadius: '0.5rem',
-                            marginBottom: '1.5rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            border: '1px solid #6EE7B7'
-                        }}>
-                            <span style={{ fontSize: '1.5rem' }}>✅</span>
-                            <span>File validation successful! You can now import this data.</span>
-                        </div>
-                    )}
-
-                    {importSuccess && (
-                        <div style={{
-                            backgroundColor: '#ECFDF5',
-                            color: '#10B981',
-                            padding: '1rem',
-                            borderRadius: '0.5rem',
-                            marginBottom: '1.5rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.75rem',
-                            border: '1px solid #6EE7B7'
-                        }}>
-                            <span style={{ fontSize: '1.5rem' }}>✅</span>
-                            <span>Data imported successfully! Refresh the page to see your imported data.</span>
-                        </div>
-                    )}
-
                     {importStats && (
                         <div style={{
                             backgroundColor: '#EFF6FF',
@@ -473,7 +640,6 @@ const ImportDataPage = () => {
                                 <li>Total Journals: {importStats.totalJournals}</li>
                                 <li>Total Diaries: {importStats.totalDiaries}</li>
                                 <li>Total Buckets: {importStats.totalBuckets}</li>
-                                <li>Total Bucket Items: {importStats.totalBucketItems}</li>
                             </ul>
                         </div>
                     )}
@@ -483,7 +649,7 @@ const ImportDataPage = () => {
                     style={{
                         backgroundColor: backgroundColorCard,
                         padding: '2rem',
-                        borderLeft: `4px solid ${theme.secondary}`,
+                        borderLeft: `4px solid ${theme.primary}`,
                         borderRadius: '8px',
                         transition: 'transform 0.3s ease',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
@@ -499,7 +665,7 @@ const ImportDataPage = () => {
                         borderBottom: `1px solid ${isDarkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`
                     }}>
                         <div style={{
-                            backgroundColor: `${theme.secondary}20`,
+                            backgroundColor: `${theme.primary}20`,
                             borderRadius: '12px',
                             width: '48px',
                             height: '48px',
@@ -509,7 +675,7 @@ const ImportDataPage = () => {
                             marginRight: '1rem',
                             fontSize: '1.5rem'
                         }}>🔍</div>
-                        <h2 style={{ color: theme.secondary, marginBottom: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                        <h2 style={{ color: theme.primary, marginBottom: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>
                             Import Notes
                         </h2>
                     </div>
@@ -520,54 +686,121 @@ const ImportDataPage = () => {
                         </h3>
 
                         <ul style={{
-                            listStyle: 'none',
                             margin: 0,
-                            padding: 0
+                            padding: '0 0 0 1.5rem',
                         }}>
                             {importNotes.map((item, index) => (
-                                <li key={index} style={{
-                                    display: 'flex',
-                                    alignItems: 'flex-start',
-                                    marginBottom: '0.75rem',
-                                    padding: '0.5rem 0'
-                                }}>
-                                    <span style={{
-                                        fontSize: '1.25rem',
-                                        marginRight: '0.75rem',
-                                        backgroundColor: `${theme.accent}20`,
-                                        width: '32px',
-                                        height: '32px',
-                                        borderRadius: '50%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        flexShrink: 0
-                                    }}>
-                                        {item.icon}
-                                    </span>
-                                    <span>{item.text}</span>
-                                </li>
+                                <li key={index} style={{ marginBottom: '0.5rem' }}>{item.text}</li>
                             ))}
                         </ul>
                     </div>
 
-                    <div style={{
-                        padding: '1rem',
-                        borderRadius: '8px',
-                        backgroundColor: `${theme.accent}15`,
-                        borderLeft: `4px solid ${theme.accent}`,
-                        marginTop: 'auto'
+                    <h3 style={{ color: theme.secondary, fontSize: '1.2rem', marginBottom: '0.75rem' }}>
+                        How Data Merging Works:
+                    </h3>
+
+                    <p style={{ marginBottom: '1rem' }}>
+                        When commonalities are found between imported data and existing data:
+                    </p>
+
+                    <ul style={{
+                        margin: 0,
+                        padding: '0 0 0 1.5rem',
                     }}>
-                        <h3 style={{ color: theme.secondary, fontSize: '1.1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span>⚠️</span> Caution
-                        </h3>
-                        <p style={{ fontStyle: 'italic', color: textColorLight, margin: 0 }}>
-                            Only import files that were exported from YouTopia. Importing files from
-                            unknown sources may cause unexpected behavior.
-                        </p>
-                    </div>
+                        <li style={{ marginBottom: '0.5rem' }}>Journal entries are merged based on title and date similarity</li>
+                        <li style={{ marginBottom: '0.5rem' }}>Diary entries with matching titles and dates will update existing entries</li>
+                        <li style={{ marginBottom: '0.5rem' }}>Buckets with the same name will have their items combined</li>
+                        <li style={{ marginBottom: '0.5rem' }}>Duplicate bucket items are intelligently filtered to avoid repeats</li>
+                    </ul>
                 </Card>
             </div>
+
+            {/* Import Format Section - Shows the required data structure */}
+            <Card
+                style={{
+                    backgroundColor: backgroundColorCard,
+                    padding: '2rem',
+                    borderLeft: `4px solid ${theme.secondary}`,
+                    borderRadius: '8px',
+                    transition: 'transform 0.3s ease',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    marginBottom: '2rem'
+                }}
+            >
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: '1.5rem',
+                    padding: '0 0 1rem 0',
+                    borderBottom: `1px solid ${isDarkTheme ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`
+                }}>
+                    <div style={{
+                        backgroundColor: `${theme.secondary}20`,
+                        borderRadius: '12px',
+                        width: '48px',
+                        height: '48px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: '1rem',
+                        fontSize: '1.5rem'
+                    }}>📝</div>
+                    <h2 style={{ color: theme.secondary, marginBottom: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                        Required Data Structure
+                    </h2>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem' }}>
+                    <div style={{ flex: '1 1 300px' }}>
+                        <h3 style={{ color: theme.secondary, fontSize: '1.2rem', marginBottom: '0.75rem' }}>
+                            Your imported JSON file must include:
+                        </h3>
+
+                        <p style={{ marginBottom: '1rem' }}>
+                            Custom JSON files can be imported if they match the required structure. Your JSON file must contain these key elements:
+                        </p>
+
+                        <ul style={{
+                            margin: 0,
+                            padding: '0 0 0 1.5rem',
+                        }}>
+                            <li style={{ marginBottom: '0.5rem' }}>User information with at least a username</li>
+                            <li style={{ marginBottom: '0.5rem' }}>Journal entries array (can be empty)</li>
+                            <li style={{ marginBottom: '0.5rem' }}>Diary entries array (can be empty)</li>
+                            <li style={{ marginBottom: '0.5rem' }}>Bucket list array (can be empty)</li>
+                        </ul>
+                    </div>
+
+                    <div style={{ flex: '1 1 300px' }}>
+                        <div style={{
+                            padding: '1rem',
+                            backgroundColor: `${theme.secondary}10`,
+                            borderRadius: '6px',
+                            border: `1px solid ${theme.secondary}30`
+                        }}>
+                            <h4 style={{ color: theme.secondary, marginTop: 0, marginBottom: '0.5rem' }}>Required Data Structure</h4>
+                            <pre style={{
+                                backgroundColor: isDarkTheme ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)',
+                                padding: '0.75rem',
+                                borderRadius: '4px',
+                                fontSize: '0.85rem',
+                                overflowX: 'auto',
+                                margin: 0
+                            }}>
+                                {`{
+  "user": { username, createdAt },
+  "journals": [{ title, content, date }],
+  "diaries": [{ title, content, date }],
+  "buckets": [{ 
+    name, description,
+    items: [{ content }]
+  }]
+}`}
+                            </pre>
+                        </div>
+                    </div>
+                </div>
+            </Card>
 
             {/* Toast notification */}
             {notification.show && (

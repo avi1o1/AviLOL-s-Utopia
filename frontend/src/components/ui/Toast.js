@@ -228,9 +228,9 @@ export const ToastProvider = ({ children }) => {
         className="toast-container"
         style={{
           position: 'fixed',
-          top: '20px',
+          bottom: '20px',
           right: '20px',
-          zIndex: 9999,
+          zIndex: 10000,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'flex-end'
@@ -290,9 +290,9 @@ const ToastContainer = () => {
       className="toast-container"
       style={{
         position: 'fixed',
-        top: '20px',
+        bottom: '20px', // Changed from 'top' to 'bottom'
         right: '20px',
-        zIndex: 9999,
+        zIndex: 10000, // Increased z-index to appear above modal overlay
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-end'

@@ -2,6 +2,9 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const asyncHandler = require('express-async-handler');
 const User = require('../models/userModel');
+const Journal = require('../models/journalModel');
+const Diary = require('../models/diaryModel');
+const Bucket = require('../models/bucketModel');
 
 // @desc    Register new user
 // @route   POST /api/users/register
@@ -90,7 +93,6 @@ const exportUserData = asyncHandler(async (req, res) => {
         }
 
         // Get all the user's journals
-        const Journal = require('../models/journalModel');
         const journals = await Journal.find({ user: req.user._id });
 
         // Simplify journal data to only include essential textual content
@@ -101,7 +103,6 @@ const exportUserData = asyncHandler(async (req, res) => {
         }));
 
         // Get all the user's diaries
-        const Diary = require('../models/diaryModel');
         const diaries = await Diary.find({ user: req.user._id });
 
         // Simplify diary data to only include essential textual content
@@ -112,7 +113,6 @@ const exportUserData = asyncHandler(async (req, res) => {
         }));
 
         // Get all the user's buckets with their items
-        const Bucket = require('../models/bucketModel');
         const buckets = await Bucket.find({ user: req.user._id });
 
         // Simplify bucket data to only include essential textual content
@@ -177,7 +177,6 @@ const importUserData = asyncHandler(async (req, res) => {
         }
 
         // Import journals - with duplicate prevention
-        const Journal = require('../models/journalModel');
         let importedJournals = 0;
         let skippedJournals = 0;
 
@@ -210,7 +209,6 @@ const importUserData = asyncHandler(async (req, res) => {
         }
 
         // Import diaries - with duplicate prevention
-        const Diary = require('../models/diaryModel');
         let importedDiaries = 0;
         let skippedDiaries = 0;
 
@@ -243,7 +241,6 @@ const importUserData = asyncHandler(async (req, res) => {
         }
 
         // Import buckets - with merging for duplicates
-        const Bucket = require('../models/bucketModel');
         let importedBuckets = 0;
         let mergedBuckets = 0;
         let importedItems = 0;
@@ -273,9 +270,21 @@ const importUserData = asyncHandler(async (req, res) => {
                 if (existingBucket) {
                     // Merge items into existing bucket
                     let itemsAdded = 0;
+                    let skippedItems = 0;
 
                     for (const itemData of bucketData.items) {
                         if (itemData.content) {
+                            // Check if an item with the same content already exists in the bucket
+                            const isDuplicate = existingBucket.items.some(
+                                existingItem => existingItem.content === itemData.content
+                            );
+
+                            if (isDuplicate) {
+                                skippedItems++;
+                                continue; // Skip adding this item
+                            }
+
+                            // Add only non-duplicate items
                             existingBucket.items.push({
                                 content: itemData.content,
                                 isHighlighted: itemData.pinned || false
@@ -299,7 +308,7 @@ const importUserData = asyncHandler(async (req, res) => {
                         items: []
                     });
 
-                    // Add items to the bucket
+                    // Add items to the bucket (no need to check for duplicates in a new bucket)
                     for (const itemData of bucketData.items) {
                         if (itemData.content) {
                             bucket.items.push({
@@ -343,6 +352,48 @@ const importUserData = asyncHandler(async (req, res) => {
     }
 });
 
+// @desc    Delete user account and all associated data
+// @route   DELETE /api/users/delete
+// @access  Private
+const deleteUser = asyncHandler(async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { password } = req.body;
+
+        // Find the user
+        const user = await User.findById(userId);
+
+        if (!user) {
+            res.status(404);
+            throw new Error('User not found');
+        }
+
+        // Verify password
+        if (!(await user.matchPassword(password))) {
+            res.status(401);
+            throw new Error('Incorrect password');
+        }
+
+        // Delete all user's journal entries
+        await Journal.deleteMany({ user: userId });
+
+        // Delete all user's diary entries
+        await Diary.deleteMany({ user: userId });
+
+        // Delete all user's bucket list items
+        await Bucket.deleteMany({ user: userId });
+
+        // Finally delete the user
+        const deletedUser = await User.findByIdAndDelete(userId);
+
+        res.status(200).json({ message: 'User account and all data successfully deleted' });
+    } catch (error) {
+        console.error('Error in deleteUser:', error);
+        res.status(error.statusCode || 500);
+        throw new Error(error.message || 'Failed to delete user account');
+    }
+});
+
 // Generate JWT
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET || 'your_jwt_secret', {
@@ -355,5 +406,6 @@ module.exports = {
     loginUser,
     getUserProfile,
     exportUserData,
-    importUserData
+    importUserData,
+    deleteUser
 };
