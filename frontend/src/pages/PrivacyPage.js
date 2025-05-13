@@ -101,7 +101,7 @@ const PrivacyPage = () => {
             <div className="page-header" style={{ borderBottom: `3px solid ${theme.primary}`, marginBottom: '2rem', paddingBottom: '1rem' }}>
                 <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>Privacy Policy</h1>
                 <p className="mb-6" style={{ color: textColorLight }}>
-                    Last Updated: May 9, 2025
+                    Last Updated: May 13, 2025
                 </p>
             </div>
 
@@ -164,15 +164,25 @@ const PrivacyPage = () => {
                     <li style={{ marginBottom: '0.5rem' }}>All communication between your device and our servers is encrypted using SSL/TLS protocols.</li>
                     <li style={{ marginBottom: '0.5rem' }}>Passwords are never stored in plain text and are securely hashed using industry-standard algorithms.</li>
                     <li style={{ marginBottom: '0.5rem' }}>Server access is strictly limited and protected by multiple security layers.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>End-to-end encryption is implemented for all user content, providing an additional security layer.</li>
                 </ul>
                 <p style={{ marginBottom: '1rem' }}>
-                    <strong>Planned Enhancement:</strong> We are actively developing end-to-end encryption for all user content. Once implemented, this will mean:
+                    <strong>End-to-End Encryption:</strong> Our platform uses end-to-end encryption for all user-generated content, which means:
+                </p>
+                <ul style={{ listStyleType: 'disc', marginLeft: '1.5rem', marginBottom: '1rem' }}>
+                    <li style={{ marginBottom: '0.5rem' }}>Your diary entries, journal posts, and bucket lists are encrypted on your device before transmission.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>The content remains encrypted during storage on our servers.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Only you, with your encryption key, can decrypt and read the content.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Even in the event of a data breach or legal compulsion, your content remains encrypted and unreadable without your encryption key.</li>
+                </ul>
+                <p style={{ marginBottom: '1rem' }}>
+                    <strong>Data Import/Export Security:</strong> When importing or exporting data:
                 </p>
                 <ul style={{ listStyleType: 'disc', marginLeft: '1.5rem', marginBottom: '1.5rem' }}>
-                    <li style={{ marginBottom: '0.5rem' }}>Your diary entries, journal posts, and bucket lists will be encrypted on your device before transmission.</li>
-                    <li style={{ marginBottom: '0.5rem' }}>The content will remain encrypted during storage on our servers.</li>
-                    <li style={{ marginBottom: '0.5rem' }}>Only you, with your encryption key, will be able to decrypt and read the content.</li>
-                    <li style={{ marginBottom: '0.5rem' }}>Even in the event of a data breach or legal compulsion, your content would remain encrypted and unreadable without your encryption key.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Exported data can be encrypted to maintain privacy even when stored outside our platform.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Plain text data imports are automatically encrypted before being stored in our system.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Encrypted imports are verified for compatibility with your current encryption key.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>For best results when importing previously encrypted data, use the same account that created the export or ensure both accounts have the same password.</li>
                 </ul>
 
                 <h2 style={{ color: headingColor, fontSize: '1.5rem', marginBottom: '1rem' }}>5. DATA RETENTION AND DELETION</h2>

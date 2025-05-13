@@ -4,6 +4,7 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import { useTheme } from '../context/ThemeContext';
+import { hashPassword, deriveEncryptionKey } from '../utils/cryptoUtils';
 
 // Define API base URL
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -37,6 +38,15 @@ function LoginPage({ setIsAuthenticated }) {
                 throw new Error(data.message || 'Login failed');
             }
 
+            // Generate password hash for encryption purposes
+            const passwordHash = await hashPassword(password);
+
+            // Test the key derivation to ensure it works before saving
+            await deriveEncryptionKey(passwordHash);
+
+            // Store the hash for encryption/decryption operations
+            localStorage.setItem('encryptionKey', passwordHash);
+
             // Store the token and user data in localStorage
             localStorage.setItem('userToken', data.token);
             localStorage.setItem('userData', JSON.stringify({
@@ -50,6 +60,7 @@ function LoginPage({ setIsAuthenticated }) {
             // Redirect to home page instead of dashboard
             navigate('/');
         } catch (err) {
+            console.error('Login error:', err);
             setError(err.message);
         } finally {
             setIsLoading(false);

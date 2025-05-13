@@ -4,6 +4,7 @@ import { format, startOfWeek, endOfWeek, isValid } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 import { useTheme } from '../context/ThemeContext';
+import { useEncryption } from '../context/EncryptionContext';
 
 // UI Components
 import Button from '../components/ui/Button';
@@ -33,6 +34,7 @@ const safeFormat = (date, formatStr) => {
 const DiaryPage = () => {
   const { currentTheme, themes } = useTheme();
   const theme = themes[currentTheme];
+  const { encrypt, decrypt, isEncrypted, isKeyReady, isLoading: isEncryptionLoading } = useEncryption();
 
   // Determine if the current theme is a dark theme by checking its text color
   // Dark themes typically have light text colors (#F... or rgb values > 200)
@@ -97,9 +99,35 @@ const DiaryPage = () => {
           }
         });
 
-        // Make sure response.data is an array
+        // Check if API returned valid data (array of entries)
         if (response.data && Array.isArray(response.data)) {
-          setEntries(response.data);
+          // Attempt to decrypt entries if encryption key is available
+          if (isKeyReady) {
+            const decryptedEntries = await Promise.all(
+              response.data.map(async (entry) => {
+                try {
+                  // Check if title and content are encrypted
+                  if (isEncrypted(entry.title)) {
+                    entry.title = await decrypt(entry.title);
+                  }
+
+                  if (isEncrypted(entry.content)) {
+                    entry.content = await decrypt(entry.content);
+                  }
+
+                  return entry;
+                } catch (error) {
+                  console.error('Error decrypting diary entry:', error);
+                  return entry; // Return the original entry if decryption fails
+                }
+              })
+            );
+
+            setEntries(decryptedEntries);
+          } else {
+            // If encryption key is not available, just use the entries as is
+            setEntries(response.data);
+          }
         } else {
           console.warn('API did not return an array of entries:', response.data);
           setEntries([]);
@@ -127,7 +155,7 @@ const DiaryPage = () => {
     };
 
     fetchEntries();
-  }, []);
+  }, [isKeyReady, decrypt, isEncrypted]);
 
   // Save entries to localStorage as a backup
   useEffect(() => {
@@ -161,7 +189,7 @@ const DiaryPage = () => {
     // Create week range string
     const weekRange = getWeekRange(validDate);
 
-    // Prepare diary entry
+    // Prepare diary entry - plaintext version for local state
     const entryData = {
       title,
       content: newEntry,
@@ -173,15 +201,33 @@ const DiaryPage = () => {
       setLoading(true);
       setError(null);
 
-      // Save to API
-      const response = await axios.post(`${API_URL}/diary`, entryData, {
+      // Create an encrypted version to send to the API if encryption is available
+      let apiEntryData = { ...entryData };
+
+      if (isKeyReady) {
+        apiEntryData = {
+          ...apiEntryData,
+          title: await encrypt(title),
+          content: await encrypt(newEntry)
+        };
+      }
+
+      // Save to API with encrypted data
+      const response = await axios.post(`${API_URL}/diary`, apiEntryData, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
 
-      // Add the new entry to state (use the returned entry from API with MongoDB _id)
-      setEntries(prevEntries => Array.isArray(prevEntries) ? [response.data, ...prevEntries] : [response.data]);
+      // Add the plaintext entry to our local state (with the server-generated ID)
+      const savedEntry = {
+        ...response.data,
+        // Override encrypted values with plaintext values
+        title: entryData.title,
+        content: entryData.content
+      };
+
+      setEntries(prevEntries => Array.isArray(prevEntries) ? [savedEntry, ...prevEntries] : [savedEntry]);
 
       // Reset form
       setTitle('');
@@ -315,7 +361,7 @@ const DiaryPage = () => {
     // Update week range string
     const weekRange = getWeekRange(validDate);
 
-    // Prepare updated entry data
+    // Prepare updated entry data - plaintext version for local state
     const entryData = {
       title,
       content: newEntry,
@@ -334,13 +380,30 @@ const DiaryPage = () => {
       let updatedEntry;
 
       if (isMongoId) {
-        // Update on API
-        const response = await axios.put(`${API_URL}/diary/entry/${entryId}`, entryData, {
+        // Create an encrypted version of the data to send to the API
+        let apiEntryData = { ...entryData };
+
+        if (isKeyReady) {
+          apiEntryData = {
+            ...apiEntryData,
+            title: await encrypt(title),
+            content: await encrypt(newEntry)
+          };
+        }
+
+        // Update on API with encrypted data
+        const response = await axios.put(`${API_URL}/diary/entry/${entryId}`, apiEntryData, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
-        updatedEntry = response.data;
+
+        // Use the server response but with our plaintext values
+        updatedEntry = {
+          ...response.data,
+          title: entryData.title,
+          content: entryData.content
+        };
       } else {
         // Local update for entries not yet synced to server
         updatedEntry = {
@@ -432,7 +495,7 @@ const DiaryPage = () => {
   };
 
   // Display loading message if loading
-  if (loading && entries.length === 0) {
+  if ((loading || isEncryptionLoading) && entries.length === 0) {
     return (
       <div className="diary-page" style={{ color: theme.text }}>
         <div>
@@ -440,7 +503,7 @@ const DiaryPage = () => {
             My Diary
           </h1>
           <p className="mb-6" style={{ color: theme.textLight }}>
-            Loading your entries...
+            {isEncryptionLoading ? "Preparing encryption..." : "Loading your entries..."}
           </p>
         </div>
       </div>
@@ -457,6 +520,22 @@ const DiaryPage = () => {
           </h1>
           <p className="mb-6" style={{ color: theme.error || 'red' }}>
             {error}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Encryption key not available message
+  if (!isKeyReady && !isEncryptionLoading) {
+    return (
+      <div className="diary-page" style={{ color: theme.text }}>
+        <div className="page-header">
+          <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+            My Diary
+          </h1>
+          <p className="mb-6" style={{ color: 'var(--color-error)' }}>
+            Encryption key not available. Please log out and log back in to enable end-to-end encryption.
           </p>
         </div>
       </div>

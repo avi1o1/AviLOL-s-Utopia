@@ -152,6 +152,23 @@ const exportUserData = asyncHandler(async (req, res) => {
     }
 });
 
+// Helper function to decrypt fields in an array of objects
+const decryptArray = async (array, fields, decrypt) => {
+    return Promise.all(array.map(async (item) => {
+        const decryptedItem = { ...item };
+        for (const field of fields) {
+            if (item[field]) {
+                try {
+                    decryptedItem[field] = await decrypt(item[field]);
+                } catch (err) {
+                    console.error(`Failed to decrypt ${field}:`, err);
+                }
+            }
+        }
+        return decryptedItem;
+    }));
+};
+
 // @desc    Import user data
 // @route   POST /api/users/import
 // @access  Private
@@ -165,7 +182,7 @@ const importUserData = asyncHandler(async (req, res) => {
             throw new Error('User not found');
         }
 
-        const { importData } = req.body;
+        const { importData, isEncrypted } = req.body;
 
         // Basic validation
         if (!importData || !importData.user ||
@@ -174,6 +191,23 @@ const importUserData = asyncHandler(async (req, res) => {
             !Array.isArray(importData.buckets)) {
             res.status(400);
             throw new Error('Invalid import data structure');
+        }
+
+        const decrypt = req.decrypt; // Assume decrypt function is available in the request
+
+        // Decrypt data if encrypted
+        if (isEncrypted) {
+            importData.journals = await decryptArray(importData.journals, ['title', 'content'], decrypt);
+            importData.diaries = await decryptArray(importData.diaries, ['title', 'content'], decrypt);
+            importData.buckets = await Promise.all(importData.buckets.map(async (bucket) => {
+                const decryptedBucket = { ...bucket };
+                if (bucket.name) decryptedBucket.name = await decrypt(bucket.name);
+                if (bucket.description) decryptedBucket.description = await decrypt(bucket.description);
+                if (bucket.items && Array.isArray(bucket.items)) {
+                    decryptedBucket.items = await decryptArray(bucket.items, ['content'], decrypt);
+                }
+                return decryptedBucket;
+            }));
         }
 
         // Import journals - with duplicate prevention

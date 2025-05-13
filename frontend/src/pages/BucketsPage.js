@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { useEncryption } from '../context/EncryptionContext';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
@@ -13,6 +14,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const BucketsPage = () => {
     const { currentTheme, themes } = useTheme();
     const theme = themes[currentTheme];
+    const { encrypt, decrypt, isEncrypted, isKeyReady, isLoading: isEncryptionLoading } = useEncryption();
 
     // State for buckets and UI
     const [buckets, setBuckets] = useState([]);
@@ -29,6 +31,7 @@ const BucketsPage = () => {
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
     const [openBucketMenuId, setOpenBucketMenuId] = useState(null);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [decryptingBucketId, setDecryptingBucketId] = useState(null);
 
     // Ref for detecting clicks outside menus
     const menuRefs = useRef({});
@@ -54,20 +57,9 @@ const BucketsPage = () => {
         theme.text === '#FAFAFA' || theme.text === '#F5F5F4' || theme.text === '#F9FAFB' ||
         theme.text === '#F8FAFC';
 
-    // Collection of possible bucket icons
-    const bucketIcons = ['📝', '🎬', '📚', '🎵', '🍔', '✈️', '💡', '🎮', '📷', '🏆'];
-
     // Handle emoji click for new bucket
     const onEmojiClick = (emojiData, event) => {
         setNewBucket({ ...newBucket, icon: emojiData.emoji });
-        setShowEmojiPicker(false);
-    };
-
-    // Handle emoji click for editing bucket
-    const onEditEmojiClick = (emojiData, event) => {
-        if (editingBucket) {
-            setEditingBucket({ ...editingBucket, icon: emojiData.emoji });
-        }
         setShowEmojiPicker(false);
     };
 
@@ -125,23 +117,36 @@ const BucketsPage = () => {
                 return;
             }
 
+            // Create API version of the updated bucket
+            let apiBucket = {
+                name: editingBucket.name,
+                description: editingBucket.description,
+                icon: editingBucket.icon,
+                color: editingBucket.color
+            };
+
+            // Encrypt sensitive fields if encryption is available
+            if (isKeyReady) {
+                apiBucket = {
+                    ...apiBucket,
+                    name: await encrypt(editingBucket.name),
+                    description: await encrypt(editingBucket.description || '')
+                };
+            }
+
             const response = await fetch(`${API_URL}/buckets/${editingBucket.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    name: editingBucket.name,
-                    description: editingBucket.description,
-                    icon: editingBucket.icon,
-                    color: editingBucket.color
-                }),
+                body: JSON.stringify(apiBucket),
             });
 
             const data = await response.json();
 
             if (!response.ok) {
+                setFormError(data.message || 'Error updating bucket');
                 throw new Error(data.message || 'Error updating bucket');
             }
 
@@ -179,16 +184,32 @@ const BucketsPage = () => {
         try {
             const token = localStorage.getItem('userToken');
 
+            if (!token) {
+                showNotification('You must be logged in to update items', 'error');
+                return;
+            }
+
+            // Create API version of the updated item
+            let apiItem = {
+                content: editingItem.content,
+                isHighlighted: editingItem.isHighlighted
+            };
+
+            // Encrypt content if encryption is available
+            if (isKeyReady) {
+                apiItem = {
+                    ...apiItem,
+                    content: await encrypt(editingItem.content)
+                };
+            }
+
             const response = await fetch(`${API_URL}/buckets/${selectedBucket._id}/items/${editingItem.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({
-                    content: editingItem.content,
-                    isHighlighted: editingItem.isHighlighted
-                }),
+                body: JSON.stringify(apiItem),
             });
 
             const data = await response.json();
@@ -277,15 +298,108 @@ const BucketsPage = () => {
             }
 
             const data = await response.json();
-            // Sort buckets with pinned at top
-            const sortedBuckets = sortBucketsWithPinnedAtTop(data);
-            setBuckets(sortedBuckets);
+
+            // Decrypt bucket data if encryption is ready
+            if (isKeyReady) {
+                const decryptedBuckets = await Promise.all(
+                    data.map(async (bucket) => {
+                        try {
+                            // Check if name and description are encrypted
+                            if (bucket.name && isEncrypted(bucket.name)) {
+                                bucket.name = await decrypt(bucket.name);
+                            }
+
+                            if (bucket.description && isEncrypted(bucket.description)) {
+                                bucket.description = await decrypt(bucket.description);
+                            }
+
+                            // Decrypt each item's content if it exists
+                            if (bucket.items && bucket.items.length > 0) {
+                                bucket.items = await Promise.all(
+                                    bucket.items.map(async (item) => {
+                                        try {
+                                            if (item.content && isEncrypted(item.content)) {
+                                                item.content = await decrypt(item.content);
+                                            }
+                                            return item;
+                                        } catch (error) {
+                                            console.error('Error decrypting bucket item:', error);
+                                            return item; // Return original if decryption fails
+                                        }
+                                    })
+                                );
+                            }
+
+                            return bucket;
+                        } catch (error) {
+                            console.error('Error decrypting bucket data:', error);
+                            return bucket; // Return original bucket if decryption fails
+                        }
+                    })
+                );
+
+                setBuckets(sortBucketsWithPinnedAtTop(decryptedBuckets));
+            } else {
+                // If encryption key is not available, just use the buckets as is
+                setBuckets(sortBucketsWithPinnedAtTop(data));
+            }
         } catch (err) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [decrypt, isEncrypted, isKeyReady]);
+
+    // Function to ensure bucket data is decrypted before viewing
+    const ensureDecrypted = async (bucket) => {
+        if (!isKeyReady || !bucket) return bucket;
+
+        try {
+            let decryptedBucket = { ...bucket };
+
+            // Decrypt bucket name if encrypted
+            if (decryptedBucket.name && isEncrypted(decryptedBucket.name)) {
+                decryptedBucket.name = await decrypt(decryptedBucket.name);
+            }
+
+            // Decrypt bucket description if encrypted
+            if (decryptedBucket.description && isEncrypted(decryptedBucket.description)) {
+                decryptedBucket.description = await decrypt(decryptedBucket.description);
+            }
+
+            // Decrypt items if they exist
+            if (decryptedBucket.items && decryptedBucket.items.length > 0) {
+                decryptedBucket.items = await Promise.all(
+                    decryptedBucket.items.map(async (item) => {
+                        let decryptedItem = { ...item };
+                        if (decryptedItem.content && isEncrypted(decryptedItem.content)) {
+                            decryptedItem.content = await decrypt(decryptedItem.content);
+                        }
+                        return decryptedItem;
+                    })
+                );
+            }
+
+            return decryptedBucket;
+        } catch (error) {
+            console.error('Error decrypting bucket data:', error);
+            return bucket;
+        }
+    };
+
+    // Function to handle bucket selection with decryption
+    const handleSelectBucket = async (bucket) => {
+        try {
+            setDecryptingBucketId(bucket._id);
+            const decryptedBucket = await ensureDecrypted(bucket);
+            setSelectedBucket(decryptedBucket);
+            setDecryptingBucketId(null);
+        } catch (err) {
+            console.error('Error selecting bucket:', err);
+            showNotification('Failed to decrypt bucket data', 'error');
+            setDecryptingBucketId(null);
+        }
+    };
 
     // Fetch buckets on component mount
     useEffect(() => {
@@ -310,13 +424,26 @@ const BucketsPage = () => {
             }
 
             setFormError(''); // Clear any existing form errors
+
+            // Create API version of the new bucket
+            let apiBucket = { ...newBucket };
+
+            // Encrypt sensitive fields if encryption is available
+            if (isKeyReady) {
+                apiBucket = {
+                    ...apiBucket,
+                    name: await encrypt(newBucket.name),
+                    description: await encrypt(newBucket.description || '')
+                };
+            }
+
             const response = await fetch(`${API_URL}/buckets`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(newBucket),
+                body: JSON.stringify(apiBucket),
             });
 
             const data = await response.json();
@@ -352,13 +479,32 @@ const BucketsPage = () => {
         try {
             const token = localStorage.getItem('userToken');
 
+            if (!token) {
+                showNotification('You must be logged in to add items', 'error');
+                return;
+            }
+
+            // Create API version of the new item
+            let apiItem = {
+                content: newItem.content,
+                isHighlighted: newItem.isHighlighted
+            };
+
+            // Encrypt content if encryption is available
+            if (isKeyReady) {
+                apiItem = {
+                    ...apiItem,
+                    content: await encrypt(newItem.content)
+                };
+            }
+
             const response = await fetch(`${API_URL}/buckets/${selectedBucket._id}/items`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(newItem),
+                body: JSON.stringify(apiItem),
             });
 
             const data = await response.json();
@@ -603,13 +749,13 @@ const BucketsPage = () => {
     const secondaryTextColor = isDarkTheme ? theme.textLight : theme.text;
     const backgroundColorCard = isDarkTheme ? theme.dark : theme.light;
 
-    if (loading) {
+    if ((loading || isEncryptionLoading) && buckets.length === 0) {
         return (
             <div className="buckets-page" style={{ color: textColor }}>
                 <div className="page-header" style={{ borderBottom: `3px solid ${theme.primary}`, marginBottom: '2rem', paddingBottom: '1rem' }}>
                     <div>
                         <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>My Buckets</h1>
-                        <p style={{ color: secondaryTextColor }}>Loading your buckets...</p>
+                        <p style={{ color: secondaryTextColor }}>{isEncryptionLoading ? "Preparing encryption..." : "Loading your buckets..."}</p>
                     </div>
                 </div>
             </div>
@@ -639,6 +785,22 @@ const BucketsPage = () => {
                 >
                     Try Again
                 </Button>
+            </div>
+        );
+    }
+
+    // Encryption key not available message
+    if (!isKeyReady && !isEncryptionLoading) {
+        return (
+            <div className="buckets-page" style={{ color: textColor }}>
+                <div className="page-header">
+                    <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+                        My Buckets
+                    </h1>
+                    <p className="mb-6" style={{ color: 'var(--color-error)' }}>
+                        Encryption key not available. Please log out and log back in to enable end-to-end encryption.
+                    </p>
+                </div>
             </div>
         );
     }
@@ -738,184 +900,224 @@ const BucketsPage = () => {
                         gap: '1rem',
                         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'
                     }}>
-                        {buckets.map(bucket => (
-                            <Card
-                                key={bucket._id}
-                                onClick={() => {
-                                    // Apply sorting to items when selecting a bucket
-                                    if (bucket.items && bucket.items.length > 0) {
-                                        const sortedItems = sortItemsWithPinnedAtTop([...bucket.items]);
-                                        setSelectedBucket({
-                                            ...bucket,
-                                            items: sortedItems
-                                        });
-                                    } else {
-                                        setSelectedBucket(bucket);
-                                    }
-                                }}
-                                style={{
-                                    padding: '1.25rem',
-                                    cursor: 'pointer',
-                                    backgroundColor: bucket.isHighlighted ? `${bucket.color || theme.primary}15` : backgroundColorCard,
-                                    borderLeft: `4px solid ${bucket.color || theme.primary}`,
-                                    borderTop: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
-                                    borderRight: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
-                                    borderBottom: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
-                                    transform: selectedBucket && selectedBucket._id === bucket._id ? 'translateY(-3px)' : 'none',
-                                    boxShadow: selectedBucket && selectedBucket._id === bucket._id
-                                        ? '0 10px 15px rgba(0,0,0,0.1)'
-                                        : bucket.isHighlighted
-                                            ? '0 6px 10px rgba(0,0,0,0.08)'
-                                            : '0 4px 6px rgba(0,0,0,0.05)',
-                                    transition: 'all 0.2s ease',
-                                    position: 'relative'
-                                }}
-                            >
-                                <div style={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'flex-start'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {buckets.map(bucket => {
+                            // Check if bucket name or description is still encrypted
+                            const isNameEncrypted = bucket.name && isEncrypted(bucket.name);
+                            const isDescriptionEncrypted = bucket.description && isEncrypted(bucket.description);
+                            const isBucketStillEncrypted = isNameEncrypted || isDescriptionEncrypted;
+
+                            return (
+                                <Card
+                                    key={bucket._id}
+                                    onClick={() => handleSelectBucket(bucket)}
+                                    style={{
+                                        padding: '1.25rem',
+                                        cursor: 'pointer',
+                                        backgroundColor: bucket.isHighlighted ? `${bucket.color || theme.primary}15` : backgroundColorCard,
+                                        borderLeft: `4px solid ${bucket.color || theme.primary}`,
+                                        borderTop: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
+                                        borderRight: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
+                                        borderBottom: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
+                                        transform: selectedBucket && selectedBucket._id === bucket._id ? 'translateY(-3px)' : 'none',
+                                        boxShadow: selectedBucket && selectedBucket._id === bucket._id
+                                            ? '0 10px 15px rgba(0,0,0,0.1)'
+                                            : bucket.isHighlighted
+                                                ? '0 6px 10px rgba(0,0,0,0.08)'
+                                                : '0 4px 6px rgba(0,0,0,0.05)',
+                                        transition: 'all 0.2s ease',
+                                        position: 'relative'
+                                    }}
+                                >
+                                    {/* Show loading overlay when bucket is being decrypted or still encrypted */}
+                                    {(decryptingBucketId === bucket._id || isBucketStillEncrypted || !isKeyReady) && (
                                         <div style={{
-                                            width: '40px',
-                                            height: '40px',
-                                            minWidth: '40px',
-                                            minHeight: '40px',
-                                            flexShrink: 0,
-                                            borderRadius: '50%',
-                                            backgroundColor: bucket.color || theme.primary,
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 0,
+                                            backgroundColor: 'rgba(0,0,0,0.5)',
+                                            borderRadius: 'inherit',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            fontSize: '1.25rem'
+                                            zIndex: 5
                                         }}>
-                                            {bucket.icon}
+                                            <div style={{
+                                                color: 'white',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                gap: '0.5rem'
+                                            }}>
+                                                <div className="loader" style={{
+                                                    border: '4px solid rgba(255, 255, 255, 0.3)',
+                                                    borderRadius: '50%',
+                                                    borderTop: `4px solid ${bucket.color || theme.primary}`,
+                                                    width: '24px',
+                                                    height: '24px',
+                                                    animation: 'spin 1s linear infinite'
+                                                }}></div>
+                                                <span>{decryptingBucketId === bucket._id ? "Decrypting..." : "Loading..."}</span>
+                                            </div>
                                         </div>
-                                        <h3 style={{
-                                            margin: 0,
-                                            fontWeight: 'bold',
-                                            fontSize: '1.1rem',
-                                            color: textColor
-                                        }}>
-                                            {bucket.name}
-                                        </h3>
-                                    </div>
+                                    )}
 
-                                    <div ref={(el) => (menuRefs.current[bucket._id] = el)} style={{ position: 'relative' }}>
-                                        <Button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setOpenBucketMenuId(openBucketMenuId === bucket._id ? null : bucket._id);
-                                            }}
-                                            style={{
-                                                backgroundColor: 'transparent',
-                                                color: textColorLight,
-                                                padding: '0.25rem',
-                                                fontSize: '1.2rem',
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'flex-start'
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                            <div style={{
+                                                width: '40px',
+                                                height: '40px',
+                                                minWidth: '40px',
+                                                minHeight: '40px',
+                                                flexShrink: 0,
+                                                borderRadius: '50%',
+                                                backgroundColor: bucket.color || theme.primary,
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                width: '40px',
-                                                height: '40px'
-                                            }}
-                                        >
-                                            ⋮
-                                        </Button>
-
-                                        {openBucketMenuId === bucket._id && (
-                                            <div style={{
-                                                position: 'absolute',
-                                                right: 0,
-                                                top: '100%',
-                                                backgroundColor: backgroundColorCard,
-                                                border: `1px solid ${textColorLight}30`,
-                                                borderRadius: '0.25rem',
-                                                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                                                zIndex: 10,
-                                                minWidth: '140px'
+                                                fontSize: '1.25rem'
                                             }}>
-                                                <div
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        togglePinBucket(bucket._id, bucket.isHighlighted);
-                                                        setOpenBucketMenuId(null);
-                                                    }}
-                                                    style={{
-                                                        padding: '0.5rem 1rem',
-                                                        cursor: 'pointer',
-                                                        color: textColor,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '0.5rem'
-                                                    }}
-                                                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
-                                                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
-                                                >
-                                                    <span style={{ fontSize: '0.9rem' }}>{bucket.isHighlighted ? '📌' : '📌'}</span>
-                                                    <span>{bucket.isHighlighted ? 'Unpin' : 'Pin'}</span>
-                                                </div>
-                                                <div
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        initBucketEdit(bucket);
-                                                        setOpenBucketMenuId(null);
-                                                    }}
-                                                    style={{
-                                                        padding: '0.5rem 1rem',
-                                                        cursor: 'pointer',
-                                                        color: textColor,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '0.5rem',
-                                                        transition: 'background-color 0.2s'
-                                                    }}
-                                                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
-                                                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
-                                                >
-                                                    <span style={{ fontSize: '0.9rem' }}>✏️</span>
-                                                    <span>Edit</span>
-                                                </div>
-                                                <div
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteBucket(bucket._id);
-                                                        setOpenBucketMenuId(null);
-                                                    }}
-                                                    style={{
-                                                        padding: '0.5rem 1rem',
-                                                        cursor: 'pointer',
-                                                        color: textColor,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '0.5rem'
-                                                    }}
-                                                    onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
-                                                    onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
-                                                >
-                                                    <span style={{ fontSize: '0.9rem' }}>🗑️</span>
-                                                    <span>Remove</span>
-                                                </div>
+                                                {!isBucketStillEncrypted && isKeyReady ? bucket.icon : '🔒'}
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
+                                            <h3 style={{
+                                                margin: 0,
+                                                fontWeight: 'bold',
+                                                fontSize: '1.1rem',
+                                                color: textColor,
+                                                visibility: (!isBucketStillEncrypted && isKeyReady) ? 'visible' : 'hidden'
+                                            }}>
+                                                {bucket.name}
+                                            </h3>
+                                            {(isBucketStillEncrypted || !isKeyReady) && (
+                                                <div style={{
+                                                    height: '1.1rem',
+                                                    width: '120px',
+                                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                                    borderRadius: '4px'
+                                                }}></div>
+                                            )}
+                                        </div>
 
-                                <div style={{
-                                    marginTop: '0.75rem',
-                                    fontSize: '0.85rem',
-                                    color: textColorLight,
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                }}>
-                                    <span>{bucket.items?.length || 0} items</span>
-                                    <span style={{ fontSize: '0.8rem' }}>
-                                        {new Date(bucket.updatedAt).toLocaleDateString()}
-                                    </span>
-                                </div>
-                            </Card>
-                        ))}
+                                        <div ref={(el) => (menuRefs.current[bucket._id] = el)} style={{ position: 'relative' }}>
+                                            <Button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenBucketMenuId(openBucketMenuId === bucket._id ? null : bucket._id);
+                                                }}
+                                                style={{
+                                                    backgroundColor: 'transparent',
+                                                    color: textColorLight,
+                                                    padding: '0.25rem',
+                                                    fontSize: '1.2rem',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: '40px',
+                                                    height: '40px'
+                                                }}
+                                            >
+                                                ⋮
+                                            </Button>
+
+                                            {openBucketMenuId === bucket._id && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    right: 0,
+                                                    top: '100%',
+                                                    backgroundColor: backgroundColorCard,
+                                                    border: `1px solid ${textColorLight}30`,
+                                                    borderRadius: '0.25rem',
+                                                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                                                    zIndex: 10,
+                                                    minWidth: '140px'
+                                                }}>
+                                                    <div
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            togglePinBucket(bucket._id, bucket.isHighlighted);
+                                                            setOpenBucketMenuId(null);
+                                                        }}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            cursor: 'pointer',
+                                                            color: textColor,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.5rem'
+                                                        }}
+                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                    >
+                                                        <span style={{ fontSize: '0.9rem' }}>{bucket.isHighlighted ? '📌' : '📌'}</span>
+                                                        <span>{bucket.isHighlighted ? 'Unpin' : 'Pin'}</span>
+                                                    </div>
+                                                    <div
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            initBucketEdit(bucket);
+                                                            setOpenBucketMenuId(null);
+                                                        }}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            cursor: 'pointer',
+                                                            color: textColor,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.5rem',
+                                                            transition: 'background-color 0.2s'
+                                                        }}
+                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                    >
+                                                        <span style={{ fontSize: '0.9rem' }}>✏️</span>
+                                                        <span>Edit</span>
+                                                    </div>
+                                                    <div
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteBucket(bucket._id);
+                                                            setOpenBucketMenuId(null);
+                                                        }}
+                                                        style={{
+                                                            padding: '0.5rem 1rem',
+                                                            cursor: 'pointer',
+                                                            color: textColor,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '0.5rem'
+                                                        }}
+                                                        onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
+                                                        onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
+                                                    >
+                                                        <span style={{ fontSize: '0.9rem' }}>🗑️</span>
+                                                        <span>Remove</span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div style={{
+                                        marginTop: '0.75rem',
+                                        fontSize: '0.85rem',
+                                        color: textColorLight,
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}>
+                                        <span>{bucket.items?.length || 0} items</span>
+                                        <span style={{ fontSize: '0.8rem' }}>
+                                            {new Date(bucket.updatedAt).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                </Card>
+                            )
+                        })}
                     </div>
                 </div>
 
@@ -1421,69 +1623,6 @@ const BucketsPage = () => {
                             placeholder="What is this bucket for?"
                             style={{ width: '100%' }}
                         />
-                    </div>
-
-                    <div style={{ marginBottom: '1.25rem' }}>
-                        <label
-                            style={{
-                                display: 'block',
-                                marginBottom: '0.75rem',
-                                color: textColor,
-                                fontWeight: 'bold'
-                            }}
-                        >
-                            Bucket Icon
-                        </label>
-                        <div style={{
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: '0.5rem'
-                        }}>
-                            {bucketIcons.map(icon => (
-                                <button
-                                    key={icon}
-                                    type="button"
-                                    onClick={() => setEditingBucket({ ...editingBucket, icon })}
-                                    style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '50%',
-                                        border: icon === editingBucket?.icon ? `2px solid ${theme.primary}` : '2px solid transparent',
-                                        backgroundColor: icon === editingBucket?.icon ? `${theme.primary}20` : backgroundColorCard,
-                                        fontSize: '1.25rem',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    {icon}
-                                </button>
-                            ))}
-                            <button
-                                type="button"
-                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                style={{
-                                    width: '40px',
-                                    height: '40px',
-                                    borderRadius: '50%',
-                                    border: '2px solid transparent',
-                                    backgroundColor: backgroundColorCard,
-                                    fontSize: '1.25rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                😊
-                            </button>
-                            {showEmojiPicker && (
-                                <div style={{ position: 'absolute', zIndex: 1000 }}>
-                                    <EmojiPicker onEmojiClick={onEditEmojiClick} />
-                                </div>
-                            )}
-                        </div>
                     </div>
 
                     <div style={{ marginBottom: '1.5rem' }}>

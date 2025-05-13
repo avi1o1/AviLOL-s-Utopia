@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { useEncryption } from '../context/EncryptionContext';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Toast } from '../components/ui/Toast';
@@ -9,6 +10,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const ExportDataPage = () => {
     const { currentTheme, themes } = useTheme();
     const theme = themes[currentTheme];
+    const { isKeyReady, isLoading: isEncryptionLoading, decrypt, isEncrypted } = useEncryption();
 
     // State variables
     const [loading, setLoading] = useState(false);
@@ -42,6 +44,30 @@ const ExportDataPage = () => {
         }, 3000);
     };
 
+    // Helper function to decrypt an entire array of items
+    const decryptArray = async (array, fields) => {
+        if (!array || !Array.isArray(array)) return [];
+
+        const decryptedArray = await Promise.all(array.map(async (item) => {
+            const decryptedItem = { ...item };
+
+            for (const field of fields) {
+                if (item[field] && isEncrypted(item[field])) {
+                    try {
+                        decryptedItem[field] = await decrypt(item[field]);
+                    } catch (err) {
+                        console.error(`Failed to decrypt ${field}:`, err);
+                        decryptedItem[field] = `[Decryption failed: ${field}]`;
+                    }
+                }
+            }
+
+            return decryptedItem;
+        }));
+
+        return decryptedArray;
+    };
+
     // Function to export user data
     const handleExportData = async () => {
         setLoading(true);
@@ -49,6 +75,13 @@ const ExportDataPage = () => {
         setExportSuccess(false);
 
         try {
+            // Check if encryption is ready
+            if (!isKeyReady) {
+                setError('Encryption key not available. Please log out and log back in.');
+                setLoading(false);
+                return;
+            }
+
             const token = localStorage.getItem('userToken');
 
             if (!token) {
@@ -76,9 +109,48 @@ const ExportDataPage = () => {
             }
 
             const data = await response.json();
+            const exportedData = data.data || data;
+
+            showNotification('Decrypting your data for export...', 'info');
+
+            // Decrypt all encrypted content
+            const decryptedData = { ...exportedData };
+
+            // Decrypt journals (title and content fields)
+            if (decryptedData.journals && Array.isArray(decryptedData.journals)) {
+                decryptedData.journals = await decryptArray(decryptedData.journals, ['title', 'content']);
+            }
+
+            // Decrypt diaries (title and content fields)
+            if (decryptedData.diaries && Array.isArray(decryptedData.diaries)) {
+                decryptedData.diaries = await decryptArray(decryptedData.diaries, ['title', 'content']);
+            }
+
+            // Decrypt buckets (name, description fields and items array)
+            if (decryptedData.buckets && Array.isArray(decryptedData.buckets)) {
+                decryptedData.buckets = await Promise.all(decryptedData.buckets.map(async (bucket) => {
+                    const decryptedBucket = { ...bucket };
+
+                    // Decrypt bucket name and description
+                    if (bucket.name && isEncrypted(bucket.name)) {
+                        decryptedBucket.name = await decrypt(bucket.name);
+                    }
+
+                    if (bucket.description && isEncrypted(bucket.description)) {
+                        decryptedBucket.description = await decrypt(bucket.description);
+                    }
+
+                    // Decrypt bucket items
+                    if (bucket.items && Array.isArray(bucket.items)) {
+                        decryptedBucket.items = await decryptArray(bucket.items, ['content']);
+                    }
+
+                    return decryptedBucket;
+                }));
+            }
 
             // Convert data to JSON string
-            const jsonData = JSON.stringify(data.data, null, 2);
+            const jsonData = JSON.stringify(decryptedData, null, 2);
 
             // Create a blob and download link
             const blob = new Blob([jsonData], { type: 'application/json' });
@@ -89,7 +161,7 @@ const ExportDataPage = () => {
             downloadLink.href = url;
 
             // Get the username from the response data
-            const username = data.data.user?.username || 'user';
+            const username = decryptedData.user?.username || 'user';
 
             // Format the date for the filename
             const today = new Date();
@@ -98,7 +170,7 @@ const ExportDataPage = () => {
             const year = today.getFullYear();
             const dateString = `${day}-${month}-${year}`;
 
-            downloadLink.download = `${username}_YouTopiaData_${dateString}.json`;
+            downloadLink.download = `${username}_YouTopia_${dateString}.json`;
             document.body.appendChild(downloadLink);
             downloadLink.click();
 
@@ -124,6 +196,56 @@ const ExportDataPage = () => {
         { icon: '👤', label: 'Profile Data' },
     ];
 
+    // If encryption key is not available
+    if (!isKeyReady && !isEncryptionLoading) {
+        return (
+            <div className="export-data-page" style={{ color: textColor, padding: '2rem' }}>
+                <div className="page-header" style={{
+                    borderBottom: `3px solid ${theme.primary}`,
+                    marginBottom: '2rem',
+                    paddingBottom: '1rem'
+                }}>
+                    <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+                        Export Your Data
+                    </h1>
+                    <p className="mb-6" style={{ color: 'var(--color-error)' }}>
+                        Encryption key not available. Please log out and log back in to enable data export.
+                    </p>
+                </div>
+                <Card style={{ backgroundColor: backgroundColorCard, padding: '2rem' }}>
+                    <h2 style={{ color: theme.secondary }}>Why is encryption key required?</h2>
+                    <p style={{ marginBottom: '1rem' }}>
+                        Your data is stored in encrypted format. The encryption key is needed to decrypt your data
+                        before exporting it as plaintext.
+                    </p>
+                    <p>
+                        Please log out and log back in to refresh your encryption key.
+                    </p>
+                </Card>
+            </div>
+        );
+    }
+
+    // Display loading message if encryption is loading
+    if (isEncryptionLoading) {
+        return (
+            <div className="export-data-page" style={{ color: textColor, padding: '2rem' }}>
+                <div className="page-header" style={{
+                    borderBottom: `3px solid ${theme.primary}`,
+                    marginBottom: '2rem',
+                    paddingBottom: '1rem'
+                }}>
+                    <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+                        Export Your Data
+                    </h1>
+                    <p className="mb-6" style={{ color: textColorLight }}>
+                        Preparing encryption system...
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="export-data-page" style={{
             color: textColor,
@@ -144,7 +266,7 @@ const ExportDataPage = () => {
                     Export Your Data
                 </h1>
                 <p className="mb-6" style={{ color: textColorLight, maxWidth: '600px', margin: '0.5rem auto 1.5rem' }}>
-                    Download all your valuable memories, thoughts, and collections in JSON format
+                    Download all your valuable memories, thoughts, and collections in plaintext JSON format
                 </p>
             </div>
 
@@ -185,12 +307,12 @@ const ExportDataPage = () => {
                             fontSize: '1.5rem'
                         }}>💾</div>
                         <h2 style={{ color: theme.primary, marginBottom: '0', fontSize: '1.5rem', fontWeight: 'bold' }}>
-                            Data Export
+                            Data Export (Plaintext)
                         </h2>
                     </div>
 
                     <p style={{ marginBottom: '1.5rem' }}>
-                        Click the button below to download a comprehensive JSON file containing all your data:
+                        Click the button below to download a comprehensive unencrypted JSON file containing all your data:
                     </p>
 
                     <div style={{
@@ -294,7 +416,7 @@ const ExportDataPage = () => {
                                     borderTopColor: 'white',
                                     animation: 'spin 1s linear infinite'
                                 }}></span>
-                                Exporting Data...
+                                {exportSuccess ? 'Exporting Data...' : 'Decrypting & Exporting...'}
                             </>
                         ) : (
                             <>
@@ -341,7 +463,7 @@ const ExportDataPage = () => {
 
                     <div style={{ marginBottom: '1.5rem' }}>
                         <h3 style={{ color: theme.primary, fontSize: '1.2rem', marginBottom: '0.75rem' }}>
-                            How can you use your exported data:
+                            How you can use your exported data:
                         </h3>
 
                         <ul style={{
@@ -350,9 +472,9 @@ const ExportDataPage = () => {
                             padding: 0
                         }}>
                             {[
+                                { icon: '📖', text: 'Your data is exported in human-readable format' },
                                 { icon: '💾', text: 'Create a personal backup of all your content' },
-                                { icon: '🔄', text: 'Migrate your data to another platform' },
-                                { icon: '📊', text: 'Analyze your journaling patterns with other tools' },
+                                { icon: '🔄', text: 'Import data back into YouTopia if needed' },
                                 { icon: '🗄️', text: 'Archive your memories for long-term storage' }
                             ].map((item, index) => (
                                 <li key={index} style={{
@@ -389,17 +511,17 @@ const ExportDataPage = () => {
                         marginTop: 'auto'
                     }}>
                         <h3 style={{ color: theme.primary, fontSize: '1.1rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span>🔒</span> Security Advisory
+                            <span>⚠️</span> Security Advisory
                         </h3>
                         <p style={{ fontStyle: 'italic', color: textColorLight, margin: 0 }}>
-                            This file might contain your personal information. Please store it securely
-                            and avoid sharing it on public platforms.
+                            Unlike in-app data which is always encrypted, this export contains your data in plaintext format.
+                            Store this file securely to protect your privacy.
                         </p>
                     </div>
                 </Card>
             </div>
 
-            {/* Export Format Section - Moved to a separate container below */}
+            {/* Export Format Section - Shows the structure of the data */}
             <Card
                 style={{
                     backgroundColor: backgroundColorCard,
@@ -441,18 +563,18 @@ const ExportDataPage = () => {
                         </h3>
 
                         <p style={{ marginBottom: '1rem' }}>
-                            Your export focuses primarily on <strong>textual content</strong>. While some system fields like IDs,
-                            timestamps, and metadata are included, the most important elements are:
+                            Your export includes <strong>plaintext (unencrypted) content</strong> for easy reading. The exported file contains:
                         </p>
 
                         <ul style={{
                             margin: 0,
                             padding: '0 0 0 1.5rem',
                         }}>
-                            <li style={{ marginBottom: '0.5rem' }}>Your journal entries and their content</li>
+                            <li style={{ marginBottom: '0.5rem' }}>Your journal entries with titles and content</li>
                             <li style={{ marginBottom: '0.5rem' }}>Your diary entries with titles and content</li>
                             <li style={{ marginBottom: '0.5rem' }}>Your bucket list items and their descriptions</li>
                             <li style={{ marginBottom: '0.5rem' }}>Basic account information</li>
+                            <li style={{ marginBottom: '0.5rem' }}>Export metadata to show this is a plaintext export</li>
                         </ul>
                     </div>
 
@@ -473,13 +595,21 @@ const ExportDataPage = () => {
                                 margin: 0
                             }}>
                                 {`{
-  "user": { username, createdAt },
-  "journals": [{ title, content, date }],
-  "diaries": [{ title, content, date }],
-  "buckets": [{ 
-    name, description,
-    items: [{ content }]
-  }]
+    "user": { username, createdAt },
+    "journals": [{ 
+      title: "Journal Title", 
+      content: "Journal Content..." 
+    }],
+    "diaries": [{ 
+      title: "Diary Entry Title", 
+      content: "Diary Entry content..." 
+    }],
+    "buckets": [{ 
+      name: "Bucket Name", 
+      description: "Bucket Description", 
+      items: [{ content: "Item Content" }]
+    }],
+    
 }`}
                             </pre>
                         </div>
@@ -489,11 +619,20 @@ const ExportDataPage = () => {
 
             {/* Toast notification */}
             {notification.show && (
-                <Toast
-                    message={notification.message}
-                    type={notification.type}
-                    onClose={() => setNotification({ ...notification, show: false })}
-                />
+                <div style={{
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    zIndex: 10000,
+                    maxWidth: '400px',
+                    width: 'auto'
+                }}>
+                    <Toast
+                        message={notification.message}
+                        type={notification.type}
+                        onClose={() => setNotification({ ...notification, show: false })}
+                    />
+                </div>
             )}
 
             {/* CSS Animations */}

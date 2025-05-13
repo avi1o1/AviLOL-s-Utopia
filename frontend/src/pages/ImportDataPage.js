@@ -1,8 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
+import { useEncryption } from '../context/EncryptionContext';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { Toast } from '../components/ui/Toast';
+import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
@@ -10,15 +12,21 @@ const ImportDataPage = () => {
     const { currentTheme, themes } = useTheme();
     const theme = themes[currentTheme];
     const fileDropAreaRef = useRef(null);
+    const { encrypt, decrypt, isEncrypted, isKeyReady, isLoading: isEncryptionLoading } = useEncryption();
 
     // State variables
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [notification, setNotification] = useState({ show: false, message: '', type: '' });
-    const [importSuccess, setImportSuccess] = useState(false);
     const [importFile, setImportFile] = useState(null);
     const [validationResult, setValidationResult] = useState(null);
     const [importStats, setImportStats] = useState(null);
+    const [existingData, setExistingData] = useState({
+        journals: [],
+        diaries: [],
+        buckets: []
+    });
+    const [processingStage, setProcessingStage] = useState('');
 
     // Determine if the current theme is a dark theme by checking its text color
     const isDarkTheme = theme.text.startsWith('#F') || theme.text.startsWith('#f') ||
@@ -210,10 +218,17 @@ const ImportDataPage = () => {
             return;
         }
 
+        // Check if encryption key is ready
+        if (!isKeyReady) {
+            setError('Encryption key not available. Please log out and log back in to enable import.');
+            showNotification('Encryption key not available. Please log out and log back in.', 'error');
+            return;
+        }
+
         setLoading(true);
         setError(null);
-        setImportSuccess(false);
         setImportStats(null);
+        setProcessingStage('Reading file...');
 
         try {
             const token = localStorage.getItem('userToken');
@@ -223,13 +238,6 @@ const ImportDataPage = () => {
                 setLoading(false);
                 return;
             }
-
-            // Show animated progress indication
-            setTimeout(() => {
-                if (loading) {
-                    showNotification('Processing your data...', 'info');
-                }
-            }, 800);
 
             // Read file content
             const fileContent = await importFile.text();
@@ -250,58 +258,45 @@ const ImportDataPage = () => {
                 throw new Error(`Invalid data structure: ${validation.error}`);
             }
 
-            // Send the data to the server
-            const response = await fetch(`${API_URL}/users/import`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ importData: dataToImport }),
-            });
+            // Stage 1: Filter out duplicates and prepare data with encryption
+            setProcessingStage('Processing journals...');
 
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Error importing data');
-            }
+            // Process journals - filter out duplicates and encrypt
+            const processedJournals = await processJournals(dataToImport.journals);
 
-            const data = await response.json();
-            console.log('Import response:', data); // Debug log to see what's coming back
+            setProcessingStage('Processing diaries...');
+            // Process diaries - filter out duplicates and encrypt
+            const processedDiaries = await processDiaries(dataToImport.diaries);
+
+            setProcessingStage('Processing buckets...');
+            // Process buckets - merge with existing buckets and encrypt
+            const processedBuckets = await processBuckets(dataToImport.buckets);
+
+            // Create the final processed data to import
+            const processedData = {
+                user: dataToImport.user,
+                journals: processedJournals,
+                diaries: processedDiaries,
+                buckets: processedBuckets
+            };
+
+            setProcessingStage('Sending to server...');
+            // Send the encrypted and processed data to the server
+            const response = await axios.post(`${API_URL}/users/import`,
+                { importData: processedData },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
 
             // Process statistics from server response
             const stats = {
-                // Get journal counts - handle both nested and flat response formats
-                totalJournals: data.stats?.journals?.imported ||
-                    data.stats?.totalJournals ||
-                    data.totalJournals || 0,
-
-                // Get diary counts
-                totalDiaries: data.stats?.diaries?.imported ||
-                    data.stats?.totalDiaries ||
-                    data.totalDiaries || 0,
-
-                // Get bucket counts (sum of new and merged buckets)
-                totalBuckets: (data.stats?.buckets?.new + data.stats?.buckets?.merged) ||
-                    data.stats?.totalBuckets ||
-                    data.totalBuckets || 0,
-
-                // Get bucket items count
-                totalBucketItems: data.stats?.buckets?.items ||
-                    data.stats?.totalBucketItems ||
-                    data.totalBucketItems || 0
+                totalJournals: processedJournals.length,
+                totalDiaries: processedDiaries.length,
+                totalBuckets: processedBuckets.length,
+                totalBucketItems: processedBuckets.reduce((total, bucket) =>
+                    total + (bucket.items?.length || 0), 0)
             };
 
-            // Force numeric values to ensure proper display
-            Object.keys(stats).forEach(key => {
-                stats[key] = parseInt(stats[key], 10) || 0;
-            });
-
-            console.log('Processed stats:', stats); // Debug log for processed stats
-
             setImportStats(stats);
-
-            setImportSuccess(true);
-            // Simplified toast message
             showNotification('Data imported successfully', 'success');
 
             // Clear the file input
@@ -315,8 +310,311 @@ const ImportDataPage = () => {
             showNotification(`Failed to import data: ${err.message}`, 'error');
         } finally {
             setLoading(false);
+            setProcessingStage('');
         }
     };
+
+    // Process and encrypt journal entries, filter duplicates
+    const processJournals = async (journals) => {
+        if (!Array.isArray(journals) || journals.length === 0) return [];
+
+        const processedJournals = [];
+        const existingJournalTitles = new Set(existingData.journals.map(j => j.title?.toLowerCase()));
+        const existingJournalDates = new Set(existingData.journals.map(j => j.date?.split('T')[0]));
+
+        for (const journal of journals) {
+            // Check for duplicates based on title and date
+            const journalTitle = journal.title?.toLowerCase();
+            const journalDate = journal.date?.split('T')[0];
+
+            // If we have an entry with same title AND date, consider it a duplicate
+            const isDuplicate = existingJournalTitles.has(journalTitle) &&
+                existingJournalDates.has(journalDate) &&
+                existingData.journals.some(j =>
+                    j.title?.toLowerCase() === journalTitle &&
+                    j.date?.split('T')[0] === journalDate);
+
+            if (isDuplicate) continue;
+
+            // Encrypt title and content
+            try {
+                const encryptedJournal = { ...journal };
+                encryptedJournal.title = await encrypt(journal.title);
+                encryptedJournal.content = await encrypt(journal.content);
+                processedJournals.push(encryptedJournal);
+            } catch (err) {
+                console.error('Error encrypting journal:', err);
+                // Skip this journal if encryption fails
+            }
+        }
+
+        return processedJournals;
+    };
+
+    // Process and encrypt diary entries, filter duplicates
+    const processDiaries = async (diaries) => {
+        if (!Array.isArray(diaries) || diaries.length === 0) return [];
+
+        const processedDiaries = [];
+        const existingDiaryTitles = new Set(existingData.diaries.map(d => d.title?.toLowerCase()));
+        const existingDiaryDates = new Set(existingData.diaries.map(d => d.date?.split('T')[0]));
+
+        for (const diary of diaries) {
+            // Check for duplicates based on title and date
+            const diaryTitle = diary.title?.toLowerCase();
+            const diaryDate = diary.date?.split('T')[0];
+
+            // If we have an entry with same title AND date, consider it a duplicate
+            const isDuplicate = existingDiaryTitles.has(diaryTitle) &&
+                existingDiaryDates.has(diaryDate) &&
+                existingData.diaries.some(d =>
+                    d.title?.toLowerCase() === diaryTitle &&
+                    d.date?.split('T')[0] === diaryDate);
+
+            if (isDuplicate) continue;
+
+            // Encrypt title and content
+            try {
+                const encryptedDiary = { ...diary };
+                encryptedDiary.title = await encrypt(diary.title);
+                encryptedDiary.content = await encrypt(diary.content);
+                processedDiaries.push(encryptedDiary);
+            } catch (err) {
+                console.error('Error encrypting diary:', err);
+                // Skip this diary if encryption fails
+            }
+        }
+
+        return processedDiaries;
+    };
+
+    // Process buckets, merge with existing ones and encrypt
+    const processBuckets = async (buckets) => {
+        if (!Array.isArray(buckets) || buckets.length === 0) return [];
+
+        const processedBuckets = [];
+        const existingBucketNames = new Map();
+
+        // Create a map of existing bucket names to their indices
+        existingData.buckets.forEach((bucket, index) => {
+            if (bucket.name) {
+                existingBucketNames.set(bucket.name.toLowerCase(), index);
+            }
+        });
+
+        for (const bucket of buckets) {
+            try {
+                // First encrypt the bucket name to check for duplicates
+                const bucketName = bucket.name;
+                const bucketNameLower = bucketName.toLowerCase();
+
+                // Check if we already have a bucket with this name
+                if (existingBucketNames.has(bucketNameLower)) {
+                    // Get the existing bucket
+                    const existingBucket = existingData.buckets[existingBucketNames.get(bucketNameLower)];
+
+                    // Create a set of existing item contents to avoid duplicates
+                    const existingItemContents = new Set(
+                        existingBucket.items?.map(item => item.content?.toLowerCase()) || []
+                    );
+
+                    // Only add items that don't exist yet
+                    const newItems = [];
+                    if (Array.isArray(bucket.items)) {
+                        for (const item of bucket.items) {
+                            if (!existingItemContents.has(item.content?.toLowerCase())) {
+                                // Encrypt the new item
+                                try {
+                                    const encryptedItem = { ...item };
+                                    encryptedItem.content = await encrypt(item.content);
+                                    newItems.push(encryptedItem);
+                                } catch (err) {
+                                    console.error('Error encrypting bucket item:', err);
+                                }
+                            }
+                        }
+                    }
+
+                    // Create a new merged bucket with encrypted name and description
+                    const mergedBucket = {
+                        name: await encrypt(bucketName),
+                        description: bucket.description ? await encrypt(bucket.description) : '',
+                        color: bucket.color || existingBucket.color,
+                        icon: bucket.icon || existingBucket.icon,
+                        items: newItems,
+                        existingBucketId: existingBucket._id  // Reference to existing bucket
+                    };
+
+                    processedBuckets.push(mergedBucket);
+                } else {
+                    // This is a new bucket, encrypt all its data
+                    const encryptedBucket = {
+                        name: await encrypt(bucketName),
+                        description: bucket.description ? await encrypt(bucket.description) : '',
+                        color: bucket.color || '#3498db',
+                        icon: bucket.icon || '📝'
+                    };
+
+                    // Encrypt all items in the bucket
+                    if (Array.isArray(bucket.items)) {
+                        encryptedBucket.items = await Promise.all(
+                            bucket.items.map(async (item) => {
+                                try {
+                                    return {
+                                        content: await encrypt(item.content),
+                                        isHighlighted: item.isHighlighted || false,
+                                        isPinned: item.isPinned || false
+                                    };
+                                } catch (err) {
+                                    console.error('Error encrypting bucket item:', err);
+                                    return null;
+                                }
+                            })
+                        ).then(items => items.filter(item => item !== null));
+                    } else {
+                        encryptedBucket.items = [];
+                    }
+
+                    processedBuckets.push(encryptedBucket);
+                }
+            } catch (err) {
+                console.error('Error processing bucket:', err);
+                // Skip this bucket if processing fails
+            }
+        }
+
+        return processedBuckets;
+    };
+
+    // Fetch existing data from API when component mounts
+    useEffect(() => {
+        const fetchExistingData = async () => {
+            if (!isKeyReady) return;
+
+            try {
+                const token = localStorage.getItem('userToken');
+                if (!token) return;
+
+                // Fetch journals
+                const journalResponse = await axios.get(`${API_URL}/journals`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                // Fetch diaries
+                const diaryResponse = await axios.get(`${API_URL}/diary`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                // Fetch buckets
+                const bucketResponse = await axios.get(`${API_URL}/buckets`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                // Decrypt journal entries if they are encrypted
+                let journals = journalResponse.data || [];
+                if (Array.isArray(journals)) {
+                    journals = await Promise.all(
+                        journals.map(async (entry) => {
+                            try {
+                                const decrypted = { ...entry };
+                                if (entry.title && isEncrypted(entry.title)) {
+                                    decrypted.title = await decrypt(entry.title);
+                                }
+                                if (entry.content && isEncrypted(entry.content)) {
+                                    decrypted.content = await decrypt(entry.content);
+                                }
+                                return decrypted;
+                            } catch (error) {
+                                console.error('Error decrypting journal entry:', error);
+                                return entry;
+                            }
+                        })
+                    );
+                }
+
+                // Decrypt diary entries if they are encrypted
+                let diaries = diaryResponse.data || [];
+                if (Array.isArray(diaries)) {
+                    diaries = await Promise.all(
+                        diaries.map(async (entry) => {
+                            try {
+                                const decrypted = { ...entry };
+                                if (entry.title && isEncrypted(entry.title)) {
+                                    decrypted.title = await decrypt(entry.title);
+                                }
+                                if (entry.content && isEncrypted(entry.content)) {
+                                    decrypted.content = await decrypt(entry.content);
+                                }
+                                return decrypted;
+                            } catch (error) {
+                                console.error('Error decrypting diary entry:', error);
+                                return entry;
+                            }
+                        })
+                    );
+                }
+
+                // Decrypt buckets if they are encrypted
+                let buckets = bucketResponse.data || [];
+                if (Array.isArray(buckets)) {
+                    buckets = await Promise.all(
+                        buckets.map(async (bucket) => {
+                            try {
+                                const decrypted = { ...bucket };
+                                if (bucket.name && isEncrypted(bucket.name)) {
+                                    decrypted.name = await decrypt(bucket.name);
+                                }
+                                if (bucket.description && isEncrypted(bucket.description)) {
+                                    decrypted.description = await decrypt(bucket.description);
+                                }
+
+                                // Decrypt bucket items
+                                if (bucket.items && Array.isArray(bucket.items)) {
+                                    decrypted.items = await Promise.all(
+                                        bucket.items.map(async (item) => {
+                                            try {
+                                                const decryptedItem = { ...item };
+                                                if (item.content && isEncrypted(item.content)) {
+                                                    decryptedItem.content = await decrypt(item.content);
+                                                }
+                                                return decryptedItem;
+                                            } catch (error) {
+                                                console.error('Error decrypting bucket item:', error);
+                                                return item;
+                                            }
+                                        })
+                                    );
+                                }
+                                return decrypted;
+                            } catch (error) {
+                                console.error('Error decrypting bucket:', error);
+                                return bucket;
+                            }
+                        })
+                    );
+                }
+
+                setExistingData({
+                    journals,
+                    diaries,
+                    buckets
+                });
+
+            } catch (error) {
+                console.error('Error fetching existing data:', error);
+                // Don't show error to user, just use empty arrays
+                setExistingData({
+                    journals: [],
+                    diaries: [],
+                    buckets: []
+                });
+            }
+        };
+
+        if (isKeyReady && !isEncryptionLoading) {
+            fetchExistingData();
+        }
+    }, [isKeyReady, isEncryptionLoading, decrypt, isEncrypted]);
 
     // Information items for import description
     const importNotes = [
@@ -325,6 +623,56 @@ const ImportDataPage = () => {
         { icon: '🔍', text: 'Data is validated before import to ensure compatibility' },
         { icon: '🔒', text: 'Your username will not change during import' }
     ];
+
+    // If encryption key is not available
+    if (!isKeyReady && !isEncryptionLoading) {
+        return (
+            <div className="import-data-page" style={{ color: textColor, padding: '2rem' }}>
+                <div className="page-header" style={{
+                    borderBottom: `3px solid ${theme.primary}`,
+                    marginBottom: '2rem',
+                    paddingBottom: '1rem'
+                }}>
+                    <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+                        Import Your Data
+                    </h1>
+                    <p className="mb-6" style={{ color: 'var(--color-error)' }}>
+                        Encryption key not available. Please log out and log back in to enable data import.
+                    </p>
+                </div>
+                <Card style={{ backgroundColor: backgroundColorCard, padding: '2rem' }}>
+                    <h2 style={{ color: theme.secondary }}>Why is encryption key required?</h2>
+                    <p style={{ marginBottom: '1rem' }}>
+                        Your data is stored in encrypted format. The encryption key is needed to encrypt your imported data
+                        before storing it securely in the database.
+                    </p>
+                    <p>
+                        Please log out and log back in to refresh your encryption key.
+                    </p>
+                </Card>
+            </div>
+        );
+    }
+
+    // Display loading message if encryption is loading
+    if (isEncryptionLoading) {
+        return (
+            <div className="import-data-page" style={{ color: textColor, padding: '2rem' }}>
+                <div className="page-header" style={{
+                    borderBottom: `3px solid ${theme.primary}`,
+                    marginBottom: '2rem',
+                    paddingBottom: '1rem'
+                }}>
+                    <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+                        Import Your Data
+                    </h1>
+                    <p className="mb-6" style={{ color: textColorLight }}>
+                        Preparing encryption system...
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="import-data-page" style={{
@@ -606,6 +954,30 @@ const ImportDataPage = () => {
                         </Button>
                     </div>
 
+                    {loading && processingStage && (
+                        <div style={{
+                            backgroundColor: `${theme.primary}15`,
+                            padding: '1rem',
+                            borderRadius: '0.5rem',
+                            marginBottom: '1.5rem',
+                            borderLeft: `4px solid ${theme.primary}`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.75rem'
+                        }}>
+                            <span className="loading-spinner" style={{
+                                display: 'inline-block',
+                                width: '1rem',
+                                height: '1rem',
+                                border: '2px solid rgba(0,0,0,0.1)',
+                                borderRadius: '50%',
+                                borderTopColor: theme.primary,
+                                animation: 'spin 1s linear infinite'
+                            }}></span>
+                            <span>{processingStage}</span>
+                        </div>
+                    )}
+
                     {error && (
                         <div style={{
                             backgroundColor: '#FEE2E2',
@@ -804,11 +1176,20 @@ const ImportDataPage = () => {
 
             {/* Toast notification */}
             {notification.show && (
-                <Toast
-                    message={notification.message}
-                    type={notification.type}
-                    onClose={() => setNotification({ ...notification, show: false })}
-                />
+                <div style={{
+                    position: 'fixed',
+                    bottom: '20px',
+                    right: '20px',
+                    zIndex: 10000,
+                    maxWidth: '400px',
+                    width: 'auto'
+                }}>
+                    <Toast
+                        message={notification.message}
+                        type={notification.type}
+                        onClose={() => setNotification({ ...notification, show: false })}
+                    />
+                </div>
             )}
 
             {/* CSS Animations */}

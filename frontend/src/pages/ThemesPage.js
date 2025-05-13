@@ -112,7 +112,7 @@ const ThemesPage = () => {
             borderBottom: `2px solid ${themes[theme].dark}`
           }}
         >
-          <h3 className="font-display text-lg capitalize">{theme}</h3>
+          <h3 className="font-display text-lg capitalize" style={{color: "white"}}>{theme}</h3>
         </div>
 
         <div

@@ -4,6 +4,7 @@ import { format, isValid } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import axios from 'axios';
 import { useTheme } from '../context/ThemeContext';
+import { useEncryption } from '../context/EncryptionContext';
 
 // UI Components
 import Button from '../components/ui/Button';
@@ -33,6 +34,7 @@ const safeFormat = (date, formatStr) => {
 const JournalPage = () => {
   const { currentTheme, themes } = useTheme();
   const theme = themes[currentTheme];
+  const { encrypt, decrypt, isEncrypted, isKeyReady, isLoading: isEncryptionLoading } = useEncryption();
 
   // Determine if the current theme is a dark theme by checking its text color
   // Dark themes typically have light text colors (#F... or rgb values > 200)
@@ -98,12 +100,39 @@ const JournalPage = () => {
             Authorization: `Bearer ${token}`
           }
         });
-        console.log('API response:', response.data);
 
         // Check if API returned valid data (array of entries)
         if (response.data && Array.isArray(response.data)) {
           console.log(`Successfully loaded ${response.data.length} entries from database`);
-          setEntries(response.data);
+
+          // Attempt to decrypt entries if encryption key is available
+          if (isKeyReady) {
+            const decryptedEntries = await Promise.all(
+              response.data.map(async (entry) => {
+                try {
+                  // Check if title and content are encrypted
+                  if (isEncrypted(entry.title)) {
+                    entry.title = await decrypt(entry.title);
+                  }
+
+                  if (isEncrypted(entry.content)) {
+                    entry.content = await decrypt(entry.content);
+                  }
+
+                  return entry;
+                } catch (error) {
+                  console.error('Error decrypting entry:', error);
+                  return entry; // Return the original entry if decryption fails
+                }
+              })
+            );
+
+            setEntries(decryptedEntries);
+          } else {
+            // If encryption key is not available, just use the entries as is
+            // They might be plain text if the encryption was not implemented before
+            setEntries(response.data);
+          }
         } else {
           console.warn('API did not return an array of entries:', response.data);
 
@@ -144,7 +173,7 @@ const JournalPage = () => {
     };
 
     fetchEntries();
-  }, []);
+  }, [isKeyReady, decrypt, isEncrypted]);
 
   // Save entries to localStorage as a backup
   useEffect(() => {
@@ -185,31 +214,45 @@ const JournalPage = () => {
       mood: "neutral" // Optional field that could be added later
     };
 
-    console.log('Attempting to save journal entry to database...');
-    console.log('API URL:', `${API_URL}/journal`);
-    console.log('Entry data:', localEntry);
-
     try {
       setLoading(true);
       setError(null);
 
-      // Try to save to API with more detailed error logging
-      const response = await axios.post(`${API_URL}/journal`, localEntry, {
+      // Create a version of the entry to send to the API
+      // If encryption is available, encrypt the title and content
+      let apiEntry = { ...localEntry };
+
+      if (isKeyReady) {
+        apiEntry = {
+          ...localEntry,
+          title: await encrypt(localEntry.title),
+          content: await encrypt(localEntry.content)
+        };
+      }
+
+      // Send the encrypted entry to the API
+      const response = await axios.post(`${API_URL}/journal`, apiEntry, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         }
       });
 
-      console.log('API response:', response);
-
+      // Process the response - note that the response will contain encrypted data
       if (response.data && response.data._id) {
-        // Successfully saved to database, use the returned entry (with MongoDB _id)
-        console.log('Successfully saved to database with ID:', response.data._id);
+        // Successfully saved to database
+        // Add the decrypted entry to our local state
+        const savedEntry = {
+          ...response.data,
+          // Override the encrypted values with our plaintext values
+          title: localEntry.title,
+          content: localEntry.content
+        };
+
         setEntries(prevEntries => {
           // Make sure prevEntries is an array
           const entriesArray = Array.isArray(prevEntries) ? prevEntries : [];
-          return [response.data, ...entriesArray];
+          return [savedEntry, ...entriesArray];
         });
       } else {
         // API didn't return expected data format, use local entry
@@ -352,7 +395,7 @@ const JournalPage = () => {
       validDate = new Date();
     }
 
-    // Prepare updated entry data
+    // Prepare updated entry data - plaintext version for local state
     const updatedEntry = {
       ...currentEntry,
       title,
@@ -370,19 +413,31 @@ const JournalPage = () => {
       const isMongoId = entryId.length === 24 && /^[0-9a-fA-F]{24}$/.test(entryId);
 
       if (isMongoId) {
-        // Try to update on API
-        await axios.put(`${API_URL}/journal/${entryId}`, {
+        // Create an encrypted version of the update data to send to the API
+        let apiUpdateData = {
           title,
           content: newEntry,
           date: validDate.toISOString()
-        }, {
+        };
+
+        // Encrypt sensitive fields if encryption is available
+        if (isKeyReady) {
+          apiUpdateData = {
+            ...apiUpdateData,
+            title: await encrypt(title),
+            content: await encrypt(newEntry)
+          };
+        }
+
+        // Update on API with encrypted data
+        await axios.put(`${API_URL}/journal/${entryId}`, apiUpdateData, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
       }
 
-      // Always update entries state regardless of API success
+      // Always update entries state with plaintext data regardless of API success
       setEntries(prevEntries => {
         if (!Array.isArray(prevEntries)) return [updatedEntry];
 
@@ -432,7 +487,7 @@ const JournalPage = () => {
   };
 
   // Display loading message if loading
-  if (loading && entries.length === 0) {
+  if ((loading || isEncryptionLoading) && entries.length === 0) {
     return (
       <div className="journal-page" style={{ color: textColor }}>
         <div>
@@ -440,7 +495,7 @@ const JournalPage = () => {
             My Journal
           </h1>
           <p className="mb-6" style={{ color: secondaryTextColor }}>
-            Loading your entries...
+            {isEncryptionLoading ? "Preparing encryption..." : "Loading your entries..."}
           </p>
         </div>
       </div>
@@ -457,6 +512,22 @@ const JournalPage = () => {
           </h1>
           <p className="mb-6" style={{ color: 'var(--color-error)' }}>
             {error}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Encryption key not available message
+  if (!isKeyReady && !isEncryptionLoading) {
+    return (
+      <div className="journal-page" style={{ color: textColor }}>
+        <div className="page-header">
+          <h1 className="text-3xl font-display mb-2" style={{ color: theme.primary }}>
+            My Journal
+          </h1>
+          <p className="mb-6" style={{ color: 'var(--color-error)' }}>
+            Encryption key not available. Please log out and log back in to enable end-to-end encryption.
           </p>
         </div>
       </div>

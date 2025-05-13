@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
+import { useEncryption } from '../../context/EncryptionContext';
 import Card from '../../components/ui/Card';
 import { format } from 'date-fns';
 import { PenLine, Book, ListTodo, CalendarDays, Box } from 'lucide-react';
@@ -16,6 +17,125 @@ const LoggedInView = ({
 }) => {
     const { currentTheme, themes } = useTheme();
     const theme = themes[currentTheme];
+    const { decrypt, isEncrypted, isKeyReady } = useEncryption();
+
+    // State for decrypted content
+    const [decryptedJournals, setDecryptedJournals] = useState([]);
+    const [decryptedDiaries, setDecryptedDiaries] = useState([]);
+    const [decryptedBuckets, setDecryptedBuckets] = useState([]);
+    const [isDecrypting, setIsDecrypting] = useState(false);
+
+    // Handle decryption of content when data changes
+    useEffect(() => {
+        const decryptContent = async () => {
+            if (!isKeyReady) return;
+
+            setIsDecrypting(true);
+
+            try {
+                // Decrypt journal entries
+                if (recentJournals && recentJournals.length > 0) {
+                    const decrypted = await Promise.all(
+                        recentJournals.map(async (entry) => {
+                            const decryptedEntry = { ...entry };
+
+                            // Decrypt title if encrypted
+                            if (entry.title && isEncrypted(entry.title)) {
+                                try {
+                                    decryptedEntry.title = await decrypt(entry.title);
+                                } catch (err) {
+                                    console.error('Error decrypting journal title:', err);
+                                    decryptedEntry.title = 'Untitled Entry';
+                                }
+                            }
+
+                            // Decrypt content if encrypted
+                            if (entry.content && isEncrypted(entry.content)) {
+                                try {
+                                    decryptedEntry.content = await decrypt(entry.content);
+                                } catch (err) {
+                                    console.error('Error decrypting journal content:', err);
+                                    decryptedEntry.content = 'Error decrypting content';
+                                }
+                            }
+
+                            return decryptedEntry;
+                        })
+                    );
+
+                    setDecryptedJournals(decrypted);
+                } else {
+                    setDecryptedJournals([]);
+                }
+
+                // Decrypt diary entries
+                if (recentDiaries && recentDiaries.length > 0) {
+                    const decrypted = await Promise.all(
+                        recentDiaries.map(async (entry) => {
+                            const decryptedEntry = { ...entry };
+
+                            // Decrypt title if encrypted
+                            if (entry.title && isEncrypted(entry.title)) {
+                                try {
+                                    decryptedEntry.title = await decrypt(entry.title);
+                                } catch (err) {
+                                    console.error('Error decrypting diary title:', err);
+                                    decryptedEntry.title = 'Untitled Entry';
+                                }
+                            }
+
+                            // Decrypt content if encrypted
+                            if (entry.content && isEncrypted(entry.content)) {
+                                try {
+                                    decryptedEntry.content = await decrypt(entry.content);
+                                } catch (err) {
+                                    console.error('Error decrypting diary content:', err);
+                                    decryptedEntry.content = 'Error decrypting content';
+                                }
+                            }
+
+                            return decryptedEntry;
+                        })
+                    );
+
+                    setDecryptedDiaries(decrypted);
+                } else {
+                    setDecryptedDiaries([]);
+                }
+
+                // Decrypt buckets
+                if (buckets && buckets.length > 0) {
+                    const decrypted = await Promise.all(
+                        buckets.map(async (bucket) => {
+                            const decryptedBucket = { ...bucket };
+
+                            // Decrypt bucket name if encrypted
+                            if (bucket.name && isEncrypted(bucket.name)) {
+                                try {
+                                    decryptedBucket.name = await decrypt(bucket.name);
+                                } catch (err) {
+                                    console.error('Error decrypting bucket name:', err);
+                                    decryptedBucket.name = 'Untitled Bucket';
+                                }
+                            }
+
+                            return decryptedBucket;
+                        })
+                    );
+
+                    setDecryptedBuckets(decrypted);
+                } else {
+                    setDecryptedBuckets([]);
+                }
+            } catch (err) {
+                console.error('Error decrypting landing page content:', err);
+            } finally {
+                setIsDecrypting(false);
+            }
+        };
+
+        decryptContent();
+    }, [recentJournals, recentDiaries, buckets, isKeyReady, decrypt, isEncrypted]);
 
     // Determine if the current theme is a dark theme by checking its text color
     const isDarkTheme = theme.text.startsWith('#F') || theme.text.startsWith('#f') ||
@@ -316,16 +436,16 @@ const LoggedInView = ({
                             <Book size={18} /> My Diary Entries
                         </h2>
 
-                        {isLoading ? (
+                        {isLoading || isDecrypting ? (
                             <div style={{ padding: '1rem', textAlign: 'center', color: theme.secondary }}>Loading diary entries...</div>
-                        ) : recentDiaries.length === 0 ? (
+                        ) : decryptedDiaries.length === 0 ? (
                             <div style={{ padding: '1rem', textAlign: 'center', color: theme.secondary }}>
                                 No diary entries yet.
                                 <Link to="/diary" style={{ marginLeft: '0.5rem', color: theme.primary }}>Create your first entry!</Link>
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {recentDiaries.map((entry) => (
+                                {decryptedDiaries.map((entry) => (
                                     <Link to="/diary" key={entry._id || entry.id} style={{ textDecoration: 'none' }}>
                                         <Card style={{
                                             padding: '0.75rem',
@@ -378,16 +498,16 @@ const LoggedInView = ({
                             <PenLine size={18} /> My Journal Entries
                         </h2>
 
-                        {isLoading ? (
+                        {isLoading || isDecrypting ? (
                             <div style={{ padding: '1rem', textAlign: 'center', color: theme.secondary }}>Loading journal entries...</div>
-                        ) : recentJournals.length === 0 ? (
+                        ) : decryptedJournals.length === 0 ? (
                             <div style={{ padding: '1rem', textAlign: 'center', color: theme.secondary }}>
                                 No journal entries yet.
                                 <Link to="/journal" style={{ marginLeft: '0.5rem', color: theme.primary }}>Create your first entry!</Link>
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {recentJournals.map((entry) => (
+                                {decryptedJournals.map((entry) => (
                                     <Link to="/journal" key={entry._id || entry.id} style={{ textDecoration: 'none' }}>
                                         <Card style={{
                                             padding: '0.75rem',
@@ -441,9 +561,9 @@ const LoggedInView = ({
                         <Box size={18} /> My Buckets
                     </h2>
 
-                    {isLoading ? (
+                    {isLoading || isDecrypting ? (
                         <div style={{ padding: '1rem', textAlign: 'center', color: theme.secondary }}>Loading buckets...</div>
-                    ) : buckets.length === 0 ? (
+                    ) : decryptedBuckets.length === 0 ? (
                         <div style={{ padding: '1rem', textAlign: 'center', color: theme.secondary }}>
                             No buckets yet.
                             <Link to="/buckets" style={{ marginLeft: '0.5rem', color: theme.primary }}>Create your first bucket!</Link>
@@ -454,7 +574,7 @@ const LoggedInView = ({
                             gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
                             gap: '1rem'
                         }}>
-                            {buckets.slice(0, 5).map((bucket) => (
+                            {decryptedBuckets.slice(0, 5).map((bucket) => (
                                 <Link to="/buckets" key={bucket._id} style={{ textDecoration: 'none' }}>
                                     <Card style={{
                                         padding: '1rem',
@@ -506,7 +626,7 @@ const LoggedInView = ({
                                 </Link>
                             ))}
 
-                            {buckets.length > 5 && (
+                            {decryptedBuckets.length > 5 && (
                                 <Link to="/buckets" style={{ textDecoration: 'none' }}>
                                     <Card style={{
                                         padding: '1rem',
@@ -527,7 +647,7 @@ const LoggedInView = ({
                                             marginBottom: '0.5rem',
                                             color: isDarkTheme ? 'rgba(255,255,255,0.9)' : theme.dark
                                         }}>
-                                            +{buckets.length - 5}
+                                            +{decryptedBuckets.length - 5}
                                         </div>
                                         <div style={{
                                             color: theme.primary,
@@ -571,15 +691,15 @@ const LoggedInView = ({
                     }}>🎨</div>
                     <div>
                         <h3 style={{ margin: '0', fontSize: '1rem', color: theme.primary, fontWeight: 'bold' }}>
-                            Customise Your Space
+                            Import Your Data
                         </h3>
-                        <Link to="/themes" style={{
+                        <Link to="/import" style={{
                             fontSize: '0.85rem',
                             color: theme.secondary,
                             fontWeight: '500',
                             textDecoration: 'none'
                         }}>
-                            Choose a different theme →
+                            Import via JSON files →
                         </Link>
                     </div>
                 </Card>

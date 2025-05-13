@@ -16,6 +16,7 @@ import ImportDataPage from './pages/ImportDataPage';
 
 // Context
 import { ThemeProvider } from './context/ThemeContext';
+import { EncryptionProvider } from './context/EncryptionContext';
 
 // UI Components
 import { ToastProvider } from './components/ui/Toast';
@@ -55,6 +56,7 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('userToken');
     localStorage.removeItem('userData');
+    localStorage.removeItem('encryptionKey'); // Also remove encryption key when logging out
     setIsAuthenticated(false);
     setMobileMenuOpen(false); // Close mobile menu when logging out
     window.location.href = '/'; // Redirect to homepage after logout
@@ -72,131 +74,133 @@ function App() {
 
   return (
     <ThemeProvider>
-      <ToastProvider>
-        <Router>
-          <div className="App">
-            <header className="app-header">
-              <div className="container">
-                <Link to="/" className="app-logo">YouTopia</Link>
+      <EncryptionProvider>
+        <ToastProvider>
+          <Router>
+            <div className="App">
+              <header className="app-header">
+                <div className="container">
+                  <Link to="/" className="app-logo">YouTopia</Link>
 
-                {/* Hamburger menu button (mobile only) */}
-                <button
-                  className={`hamburger-btn ${mobileMenuOpen ? 'open' : ''}`}
-                  onClick={toggleMobileMenu}
-                  aria-label="Toggle navigation menu"
-                >
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </button>
+                  {/* Hamburger menu button (mobile only) */}
+                  <button
+                    className={`hamburger-btn ${mobileMenuOpen ? 'open' : ''}`}
+                    onClick={toggleMobileMenu}
+                    aria-label="Toggle navigation menu"
+                  >
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </button>
 
-                <nav className={`nav-links ${mobileMenuOpen ? 'mobile-menu-open' : ''}`} style={{ border: "none" }}>
-                  {isAuthenticated ? (
-                    <>
-                      <NavLink to="/diary" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      } onClick={closeMobileMenu}>
-                        Diary
-                      </NavLink>
-                      <NavLink to="/journal" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      } onClick={closeMobileMenu}>
-                        Journal
-                      </NavLink>
-                      <NavLink to="/buckets" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      } onClick={closeMobileMenu}>
-                        Buckets
-                      </NavLink>
-                      <NavLink to="/themes" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      } onClick={closeMobileMenu}>
-                        Themes
-                      </NavLink>
-                      <button onClick={handleLogout} className="nav-link">Logout</button>
-                    </>
-                  ) : (
-                    <>
-                      <NavLink to="/themes" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      } onClick={closeMobileMenu}>
-                        Themes
-                      </NavLink>
-                      <NavLink to="/signup" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      } onClick={closeMobileMenu}>
-                        Sign Up
-                      </NavLink>
-                      <NavLink to="/login" className={({ isActive }) =>
-                        isActive ? "nav-link active" : "nav-link"
-                      } onClick={closeMobileMenu}>
-                        Login
-                      </NavLink>
-                    </>
-                  )}
-                </nav>
-              </div>
-            </header>
-
-            <main className="app-main">
-              <div className="container">
-                <Routes>
-                  {/* Public routes */}
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/login" element={<LoginPage setIsAuthenticated={setIsAuthenticated} />} />
-                  <Route path="/signup" element={<SignupPage setIsAuthenticated={setIsAuthenticated} />} />
-                  <Route path="/themes" element={<ThemesPage />} />
-                  <Route path="/privacy" element={<PrivacyPage />} />
-
-                  {/* Protected routes */}
-                  <Route path="/diary" element={
-                    <ProtectedRoute>
-                      <DiaryPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/journal" element={
-                    <ProtectedRoute>
-                      <JournalPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/buckets" element={
-                    <ProtectedRoute>
-                      <BucketsPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/export" element={
-                    <ProtectedRoute>
-                      <ExportDataPage />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/import" element={
-                    <ProtectedRoute>
-                      <ImportDataPage />
-                    </ProtectedRoute>
-                  } />
-                </Routes>
-              </div>
-            </main>
-
-            <footer className="app-footer">
-              <div className="container">
-                <div className="footer-content">
-                  <p className="font-display">&copy; {currentYear} YouTopia</p>
-                  <div className="footer-links">
+                  <nav className={`nav-links ${mobileMenuOpen ? 'mobile-menu-open' : ''}`} style={{ border: "none" }}>
                     {isAuthenticated ? (
                       <>
-                        <Link to="/import" className="footer-link">Import Data</Link>
-                        <Link to="/export" className="footer-link">Export Data</Link>
+                        <NavLink to="/diary" className={({ isActive }) =>
+                          isActive ? "nav-link active" : "nav-link"
+                        } onClick={closeMobileMenu}>
+                          Diary
+                        </NavLink>
+                        <NavLink to="/journal" className={({ isActive }) =>
+                          isActive ? "nav-link active" : "nav-link"
+                        } onClick={closeMobileMenu}>
+                          Journal
+                        </NavLink>
+                        <NavLink to="/buckets" className={({ isActive }) =>
+                          isActive ? "nav-link active" : "nav-link"
+                        } onClick={closeMobileMenu}>
+                          Buckets
+                        </NavLink>
+                        <NavLink to="/themes" className={({ isActive }) =>
+                          isActive ? "nav-link active" : "nav-link"
+                        } onClick={closeMobileMenu}>
+                          Themes
+                        </NavLink>
+                        <button onClick={handleLogout} className="nav-link">Logout</button>
                       </>
-                    ) : null}
-                    <Link to="/privacy" className="footer-link">Privacy</Link>
+                    ) : (
+                      <>
+                        <NavLink to="/themes" className={({ isActive }) =>
+                          isActive ? "nav-link active" : "nav-link"
+                        } onClick={closeMobileMenu}>
+                          Themes
+                        </NavLink>
+                        <NavLink to="/signup" className={({ isActive }) =>
+                          isActive ? "nav-link active" : "nav-link"
+                        } onClick={closeMobileMenu}>
+                          Sign Up
+                        </NavLink>
+                        <NavLink to="/login" className={({ isActive }) =>
+                          isActive ? "nav-link active" : "nav-link"
+                        } onClick={closeMobileMenu}>
+                          Login
+                        </NavLink>
+                      </>
+                    )}
+                  </nav>
+                </div>
+              </header>
+
+              <main className="app-main">
+                <div className="container">
+                  <Routes>
+                    {/* Public routes */}
+                    <Route path="/" element={<LandingPage />} />
+                    <Route path="/login" element={<LoginPage setIsAuthenticated={setIsAuthenticated} />} />
+                    <Route path="/signup" element={<SignupPage setIsAuthenticated={setIsAuthenticated} />} />
+                    <Route path="/themes" element={<ThemesPage />} />
+                    <Route path="/privacy" element={<PrivacyPage />} />
+
+                    {/* Protected routes */}
+                    <Route path="/diary" element={
+                      <ProtectedRoute>
+                        <DiaryPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/journal" element={
+                      <ProtectedRoute>
+                        <JournalPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/buckets" element={
+                      <ProtectedRoute>
+                        <BucketsPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/export" element={
+                      <ProtectedRoute>
+                        <ExportDataPage />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/import" element={
+                      <ProtectedRoute>
+                        <ImportDataPage />
+                      </ProtectedRoute>
+                    } />
+                  </Routes>
+                </div>
+              </main>
+
+              <footer className="app-footer">
+                <div className="container">
+                  <div className="footer-content">
+                    <p className="font-display">&copy; {currentYear} YouTopia</p>
+                    <div className="footer-links">
+                      {isAuthenticated ? (
+                        <>
+                          <Link to="/import" className="footer-link">Import Data</Link>
+                          <Link to="/export" className="footer-link">Export Data</Link>
+                        </>
+                      ) : null}
+                      <Link to="/privacy" className="footer-link">Privacy</Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </footer>
-          </div>
-        </Router>
-      </ToastProvider>
+              </footer>
+            </div>
+          </Router>
+        </ToastProvider>
+      </EncryptionProvider>
     </ThemeProvider>
   );
 }
