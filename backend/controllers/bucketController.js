@@ -106,7 +106,7 @@ const deleteBucket = asyncHandler(async (req, res) => {
 // @route   POST /api/buckets/:id/items
 // @access  Private
 const addBucketItem = asyncHandler(async (req, res) => {
-    const { content, isHighlighted } = req.body;
+    const { content, pinned } = req.body;
 
     if (!content) {
         res.status(400);
@@ -128,7 +128,7 @@ const addBucketItem = asyncHandler(async (req, res) => {
 
     const newItem = {
         content,
-        isHighlighted: isHighlighted || false
+        pinned: pinned || false
     };
 
     bucket.items.push(newItem);
@@ -144,7 +144,7 @@ const addBucketItem = asyncHandler(async (req, res) => {
 // @route   PUT /api/buckets/:id/items/:itemId
 // @access  Private
 const updateBucketItem = asyncHandler(async (req, res) => {
-    const { content, isHighlighted } = req.body;
+    const { content, pinned } = req.body;
     const { id, itemId } = req.params;
 
     const bucket = await Bucket.findById(id);
@@ -170,7 +170,7 @@ const updateBucketItem = asyncHandler(async (req, res) => {
 
     // Update the item fields
     if (content !== undefined) item.content = content;
-    if (isHighlighted !== undefined) item.isHighlighted = isHighlighted;
+    if (pinned !== undefined) item.pinned = pinned;
 
     await bucket.save();
     res.status(200).json(item);
@@ -213,7 +213,7 @@ const deleteBucketItem = asyncHandler(async (req, res) => {
 // @desc    Toggle highlight flag for a bucket
 // @route   PUT /api/buckets/:id/highlight
 // @access  Private
-const toggleHighlightBucket = asyncHandler(async (req, res) => {
+const togglePinnedBucket = asyncHandler(async (req, res) => {
     const bucket = await Bucket.findById(req.params.id);
 
     if (!bucket) {
@@ -228,7 +228,7 @@ const toggleHighlightBucket = asyncHandler(async (req, res) => {
     }
 
     // Toggle the highlight flag
-    bucket.isHighlighted = !bucket.isHighlighted;
+    bucket.pinned = !bucket.pinned;
 
     // Save the updated bucket
     const updatedBucket = await bucket.save();
@@ -245,5 +245,5 @@ module.exports = {
     addBucketItem,
     updateBucketItem,
     deleteBucketItem,
-    toggleHighlightBucket
+    togglePinnedBucket
 };

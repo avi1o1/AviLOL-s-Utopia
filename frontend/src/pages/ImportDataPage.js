@@ -427,6 +427,7 @@ const ImportDataPage = () => {
                                 try {
                                     const encryptedItem = { ...item };
                                     encryptedItem.content = await encrypt(item.content);
+                                    encryptedItem.pinned = item.pinned || false;
                                     newItems.push(encryptedItem);
                                 } catch (err) {
                                     console.error('Error encrypting bucket item:', err);
@@ -441,6 +442,10 @@ const ImportDataPage = () => {
                         description: bucket.description ? await encrypt(bucket.description) : '',
                         color: bucket.color || existingBucket.color,
                         icon: bucket.icon || existingBucket.icon,
+                        // Preserve pinned status of bucket (check both properties)
+                        isPinned: bucket.isPinned || bucket.pinned || existingBucket.isPinned || existingBucket.pinned || false,
+                        // For backward compatibility, also set 'pinned'
+                        pinned: bucket.isPinned || bucket.pinned || existingBucket.isPinned || existingBucket.pinned || false,
                         items: newItems,
                         existingBucketId: existingBucket._id  // Reference to existing bucket
                     };
@@ -452,7 +457,11 @@ const ImportDataPage = () => {
                         name: await encrypt(bucketName),
                         description: bucket.description ? await encrypt(bucket.description) : '',
                         color: bucket.color || '#3498db',
-                        icon: bucket.icon || '📝'
+                        icon: bucket.icon || '📝',
+                        // Preserve pinned status of bucket (check both properties)
+                        isPinned: bucket.isPinned || bucket.pinned || false,
+                        // For backward compatibility, also set 'pinned'
+                        pinned: bucket.isPinned || bucket.pinned || false
                     };
 
                     // Encrypt all items in the bucket
@@ -462,7 +471,10 @@ const ImportDataPage = () => {
                                 try {
                                     return {
                                         content: await encrypt(item.content),
-                                        isHighlighted: item.isHighlighted || false,
+                                        // Preserve pinned status (check both isPinned and pinned properties)
+                                        isPinned: item.isPinned || item.pinned || false,
+                                        // For backward compatibility, also set 'pinned'
+                                        pinned: item.isPinned || item.pinned || false,
                                         isPinned: item.isPinned || false
                                     };
                                 } catch (err) {

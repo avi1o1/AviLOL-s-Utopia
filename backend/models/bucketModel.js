@@ -7,7 +7,7 @@ const bucketItemSchema = mongoose.Schema({
         required: true,
     },
     // Optional flag to mark certain items (e.g., favorites within favorites)
-    isHighlighted: {
+    pinned: {
         type: Boolean,
         default: false
     }
@@ -38,7 +38,7 @@ const bucketSchema = mongoose.Schema({
         type: String,
         default: '#3498db', // Default color
     },
-    isHighlighted: {
+    pinned: {
         type: Boolean,
         default: false
     },

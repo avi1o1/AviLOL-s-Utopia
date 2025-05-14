@@ -21,7 +21,6 @@ const GuestView = () => {
     const textColorLight = isDarkTheme ? theme.textLight : theme.text;
     const backgroundColorMain = isDarkTheme ? theme.dark : theme.light;
     const backgroundColorCard = isDarkTheme ? theme.dark : theme.light;
-    const contrastColor = isDarkTheme ? theme.light : theme.dark;
     const highlightColor = isDarkTheme ? theme.light : theme.dark;
 
     useEffect(() => {

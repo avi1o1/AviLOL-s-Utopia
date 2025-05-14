@@ -87,10 +87,10 @@ function LandingPage() {
                 });
 
                 if (bucketsResponse.data && Array.isArray(bucketsResponse.data)) {
-                    // Sort buckets by highlighted status
+                    // Sort buckets with pinned at top
                     const sortedBuckets = bucketsResponse.data.sort((a, b) => {
-                        if (a.isHighlighted && !b.isHighlighted) return -1;
-                        if (!a.isHighlighted && b.isHighlighted) return 1;
+                        if (a.pinned && !b.pinned) return -1;
+                        if (!a.pinned && b.pinned) return 1;
                         return 0;
                     });
                     setBuckets(sortedBuckets);

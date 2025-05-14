@@ -46,7 +46,7 @@ const BucketsPage = () => {
     const [editingBucket, setEditingBucket] = useState(null);
     const [newItem, setNewItem] = useState({
         content: '',
-        isHighlighted: false
+        pinned: false
     });
     const [editingItem, setEditingItem] = useState(null);
 
@@ -95,7 +95,7 @@ const BucketsPage = () => {
         setEditingItem({
             id: item._id,
             content: item.content,
-            isHighlighted: item.isHighlighted || false
+            pinned: item.pinned || false
         });
         setShowEditItemModal(true);
     };
@@ -116,6 +116,14 @@ const BucketsPage = () => {
                 showNotification('You must be logged in to update buckets', 'error');
                 return;
             }
+
+            // Save original unencrypted values for UI display
+            const uiData = {
+                name: editingBucket.name,
+                description: editingBucket.description || '',
+                icon: editingBucket.icon,
+                color: editingBucket.color
+            };
 
             // Create API version of the updated bucket
             let apiBucket = {
@@ -150,9 +158,18 @@ const BucketsPage = () => {
                 throw new Error(data.message || 'Error updating bucket');
             }
 
+            // Create a decrypted version of the bucket for UI display
+            const decryptedBucket = {
+                ...data,
+                name: uiData.name,
+                description: uiData.description,
+                icon: uiData.icon,
+                color: uiData.color
+            };
+
             // Update buckets in state
             const updatedBuckets = buckets.map(bucket =>
-                bucket._id === editingBucket.id ? data : bucket
+                bucket._id === editingBucket.id ? decryptedBucket : bucket
             );
 
             // Sort buckets with pinned at top
@@ -161,7 +178,7 @@ const BucketsPage = () => {
 
             // If this was the selected bucket, update that too
             if (selectedBucket && selectedBucket._id === editingBucket.id) {
-                setSelectedBucket(data);
+                setSelectedBucket(decryptedBucket);
             }
 
             setShowEditBucketModal(false);
@@ -192,7 +209,7 @@ const BucketsPage = () => {
             // Create API version of the updated item
             let apiItem = {
                 content: editingItem.content,
-                isHighlighted: editingItem.isHighlighted
+                pinned: editingItem.pinned
             };
 
             // Encrypt content if encryption is available
@@ -218,11 +235,17 @@ const BucketsPage = () => {
                 throw new Error(data.message || 'Error updating item');
             }
 
+            // Store the item with original unencrypted content for UI display
+            const itemForUI = {
+                ...data,
+                content: editingItem.content // Use the original unencrypted content
+            };
+
             // Update the local state with the updated item
             const updatedBuckets = buckets.map(bucket => {
                 if (bucket._id === selectedBucket._id) {
                     const updatedItems = bucket.items.map(item =>
-                        item._id === editingItem.id ? data : item
+                        item._id === editingItem.id ? itemForUI : item
                     );
                     // Sort items with pinned at top
                     const sortedItems = sortItemsWithPinnedAtTop(updatedItems);
@@ -239,7 +262,7 @@ const BucketsPage = () => {
             // Also update the selected bucket if it's open
             if (selectedBucket) {
                 const updatedItems = selectedBucket.items.map(item =>
-                    item._id === editingItem.id ? data : item
+                    item._id === editingItem.id ? itemForUI : item
                 );
                 // Sort items with pinned at top
                 const sortedItems = sortItemsWithPinnedAtTop(updatedItems);
@@ -260,9 +283,9 @@ const BucketsPage = () => {
     const sortBucketsWithPinnedAtTop = (bucketsArray) => {
         return [...bucketsArray].sort((a, b) => {
             // If a is pinned and b is not, a comes first
-            if (a.isHighlighted && !b.isHighlighted) return -1;
+            if (a.pinned && !b.pinned) return -1;
             // If b is pinned and a is not, b comes first
-            if (!a.isHighlighted && b.isHighlighted) return 1;
+            if (!a.pinned && b.pinned) return 1;
             // Otherwise maintain the current order
             return 0;
         });
@@ -272,9 +295,9 @@ const BucketsPage = () => {
     const sortItemsWithPinnedAtTop = (itemsArray) => {
         return [...itemsArray].sort((a, b) => {
             // If a is pinned and b is not, a comes first
-            if (a.isHighlighted && !b.isHighlighted) return -1;
+            if (a.pinned && !b.pinned) return -1;
             // If b is pinned and a is not, b comes first
-            if (!a.isHighlighted && b.isHighlighted) return 1;
+            if (!a.pinned && b.pinned) return 1;
             // Otherwise maintain the current order
             return 0;
         });
@@ -428,6 +451,14 @@ const BucketsPage = () => {
             // Create API version of the new bucket
             let apiBucket = { ...newBucket };
 
+            // Save unencrypted values for UI display
+            const uiData = {
+                name: newBucket.name,
+                description: newBucket.description || '',
+                icon: newBucket.icon,
+                color: newBucket.color
+            };
+
             // Encrypt sensitive fields if encryption is available
             if (isKeyReady) {
                 apiBucket = {
@@ -453,8 +484,17 @@ const BucketsPage = () => {
                 throw new Error(data.message || 'Error creating bucket');
             }
 
+            // Create a decrypted version of the bucket for UI display
+            const decryptedBucket = {
+                ...data,
+                name: uiData.name,
+                description: uiData.description,
+                icon: uiData.icon,
+                color: uiData.color
+            };
+
             // Sort buckets with pinned at top after adding new bucket
-            const updatedBuckets = sortBucketsWithPinnedAtTop([...buckets, data]);
+            const updatedBuckets = sortBucketsWithPinnedAtTop([...buckets, decryptedBucket]);
             setBuckets(updatedBuckets);
             setNewBucket({ name: '', description: '', icon: '📝', color: '#3498db' });
             setShowAddBucketModal(false);
@@ -487,7 +527,7 @@ const BucketsPage = () => {
             // Create API version of the new item
             let apiItem = {
                 content: newItem.content,
-                isHighlighted: newItem.isHighlighted
+                pinned: newItem.pinned
             };
 
             // Encrypt content if encryption is available
@@ -513,11 +553,17 @@ const BucketsPage = () => {
                 throw new Error(data.message || 'Error adding item');
             }
 
+            // Store the decrypted content version for UI display
+            const itemForUI = {
+                ...data,
+                content: newItem.content // Use the original unencrypted content
+            };
+
             // Update the local state with the new item
             const updatedBuckets = buckets.map(bucket => {
                 if (bucket._id === selectedBucket._id) {
                     // Sort items with pinned at top
-                    const sortedItems = sortItemsWithPinnedAtTop([...bucket.items, data]);
+                    const sortedItems = sortItemsWithPinnedAtTop([...bucket.items, itemForUI]);
                     return {
                         ...bucket,
                         items: sortedItems
@@ -531,14 +577,14 @@ const BucketsPage = () => {
             // Also update the selected bucket if it's open
             if (selectedBucket) {
                 // Sort items with pinned at top
-                const sortedItems = sortItemsWithPinnedAtTop([...selectedBucket.items, data]);
+                const sortedItems = sortItemsWithPinnedAtTop([...selectedBucket.items, itemForUI]);
                 setSelectedBucket({
                     ...selectedBucket,
                     items: sortedItems
                 });
             }
 
-            setNewItem({ content: '', isHighlighted: false });
+            setNewItem({ content: '', pinned: false });
             setShowAddItemModal(false);
             showNotification('Item added successfully!', 'success');
         } catch (err) {
@@ -644,7 +690,7 @@ const BucketsPage = () => {
                     Authorization: `Bearer ${token}`,
                 },
                 body: JSON.stringify({
-                    isHighlighted: !currentPinnedState
+                    pinned: !currentPinnedState
                 }),
             });
 
@@ -659,7 +705,7 @@ const BucketsPage = () => {
             const updatedBuckets = buckets.map(bucket => {
                 if (bucket._id === selectedBucket._id) {
                     const updatedItems = bucket.items.map(item =>
-                        item._id === itemId ? { ...item, isHighlighted: data.isHighlighted } : item
+                        item._id === itemId ? { ...item, pinned: data.pinned } : item
                     );
                     // Sort items with pinned at top
                     const sortedItems = sortItemsWithPinnedAtTop(updatedItems);
@@ -675,7 +721,7 @@ const BucketsPage = () => {
 
             // Also update the selected bucket
             const updatedItems = selectedBucket.items.map(item =>
-                item._id === itemId ? { ...item, isHighlighted: data.isHighlighted } : item
+                item._id === itemId ? { ...item, pinned: data.pinned } : item
             );
             // Sort items with pinned at top
             const sortedItems = sortItemsWithPinnedAtTop(updatedItems);
@@ -710,7 +756,7 @@ const BucketsPage = () => {
 
             // Update the buckets list with updated pinned status
             const updatedBuckets = buckets.map(bucket =>
-                bucket._id === bucketId ? { ...bucket, isHighlighted: data.isHighlighted } : bucket
+                bucket._id === bucketId ? { ...bucket, pinned: data.pinned } : bucket
             );
 
             // Sort buckets with pinned at top
@@ -721,7 +767,7 @@ const BucketsPage = () => {
             if (selectedBucket && selectedBucket._id === bucketId) {
                 setSelectedBucket({
                     ...selectedBucket,
-                    isHighlighted: data.isHighlighted
+                    pinned: data.pinned
                 });
             }
         } catch (err) {
@@ -913,15 +959,15 @@ const BucketsPage = () => {
                                     style={{
                                         padding: '1.25rem',
                                         cursor: 'pointer',
-                                        backgroundColor: bucket.isHighlighted ? `${bucket.color || theme.primary}15` : backgroundColorCard,
+                                        backgroundColor: bucket.pinned ? `${bucket.color || theme.primary}15` : backgroundColorCard,
                                         borderLeft: `4px solid ${bucket.color || theme.primary}`,
-                                        borderTop: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
-                                        borderRight: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
-                                        borderBottom: bucket.isHighlighted ? `2px solid ${bucket.color || theme.primary}` : 'none',
+                                        borderTop: bucket.pinned ? `2px solid ${bucket.color || theme.primary}` : 'none',
+                                        borderRight: bucket.pinned ? `2px solid ${bucket.color || theme.primary}` : 'none',
+                                        borderBottom: bucket.pinned ? `2px solid ${bucket.color || theme.primary}` : 'none',
                                         transform: selectedBucket && selectedBucket._id === bucket._id ? 'translateY(-3px)' : 'none',
                                         boxShadow: selectedBucket && selectedBucket._id === bucket._id
                                             ? '0 10px 15px rgba(0,0,0,0.1)'
-                                            : bucket.isHighlighted
+                                            : bucket.pinned
                                                 ? '0 6px 10px rgba(0,0,0,0.08)'
                                                 : '0 4px 6px rgba(0,0,0,0.05)',
                                         transition: 'all 0.2s ease',
@@ -1039,7 +1085,7 @@ const BucketsPage = () => {
                                                     <div
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            togglePinBucket(bucket._id, bucket.isHighlighted);
+                                                            togglePinBucket(bucket._id, bucket.pinned);
                                                             setOpenBucketMenuId(null);
                                                         }}
                                                         style={{
@@ -1053,8 +1099,8 @@ const BucketsPage = () => {
                                                         onMouseOver={(e) => e.currentTarget.style.backgroundColor = `${theme.light}50`}
                                                         onMouseOut={(e) => e.currentTarget.style.backgroundColor = ''}
                                                     >
-                                                        <span style={{ fontSize: '0.9rem' }}>{bucket.isHighlighted ? '📌' : '📌'}</span>
-                                                        <span>{bucket.isHighlighted ? 'Unpin' : 'Pin'}</span>
+                                                        <span style={{ fontSize: '0.9rem' }}>{bucket.pinned ? '📌' : '📌'}</span>
+                                                        <span>{bucket.pinned ? 'Unpin' : 'Pin'}</span>
                                                     </div>
                                                     <div
                                                         onClick={(e) => {
@@ -1214,20 +1260,20 @@ const BucketsPage = () => {
                                         style={{
                                             padding: '1rem',
                                             borderRadius: '0.5rem',
-                                            backgroundColor: item.isHighlighted ? `${selectedBucket.color || theme.primary}20` : backgroundColorCard,
-                                            borderLeft: `3px solid ${item.isHighlighted ? (selectedBucket.color || theme.primary) : (textColorLight + '50')}`,
+                                            backgroundColor: item.pinned ? `${selectedBucket.color || theme.primary}20` : backgroundColorCard,
+                                            borderLeft: `3px solid ${item.pinned ? (selectedBucket.color || theme.primary) : (textColorLight + '50')}`,
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'flex-start',
                                             gap: '1rem',
-                                            boxShadow: item.isHighlighted ? '0 3px 7px rgba(0,0,0,0.08)' : 'none',
+                                            boxShadow: item.pinned ? '0 3px 7px rgba(0,0,0,0.08)' : 'none',
                                             transition: 'all 0.2s ease',
                                             position: 'relative'
                                         }}
                                     >
                                         <div style={{ flex: 1 }}>
                                             <div style={{
-                                                fontWeight: item.isHighlighted ? 'bold' : 'normal',
+                                                fontWeight: item.pinned ? 'bold' : 'normal',
                                                 color: textColor,
                                                 whiteSpace: 'pre-line'
                                             }}>
@@ -1241,17 +1287,17 @@ const BucketsPage = () => {
                                             gap: '0.5rem'
                                         }}>
                                             <Button
-                                                onClick={() => togglePinItem(item._id, item.isHighlighted)}
+                                                onClick={() => togglePinItem(item._id, item.pinned)}
                                                 style={{
                                                     backgroundColor: 'transparent',
-                                                    color: item.isHighlighted ? (selectedBucket.color || theme.primary) : textColorLight,
+                                                    color: item.pinned ? (selectedBucket.color || theme.primary) : textColorLight,
                                                     padding: '0.5rem 0.75rem',
                                                     borderRadius: '0.25rem',
-                                                    border: `1px solid ${item.isHighlighted ? (selectedBucket.color || theme.primary) : textColorLight + '50'}`
+                                                    border: `1px solid ${item.pinned ? (selectedBucket.color || theme.primary) : textColorLight + '50'}`
                                                 }}
-                                                title={item.isHighlighted ? "Unpin" : "Pin"}
+                                                title={item.pinned ? "Unpin" : "Pin"}
                                             >
-                                                {item.isHighlighted ? 'Unpin' : 'Pin'}
+                                                {item.pinned ? 'Unpin' : 'Pin'}
                                             </Button>
                                             <Button
                                                 onClick={() => initItemEdit(item)}
@@ -1543,14 +1589,14 @@ const BucketsPage = () => {
                         alignItems: 'center'
                     }}>
                         <input
-                            id="itemHighlight"
+                            id="itemPinned"
                             type="checkbox"
-                            checked={newItem.isHighlighted}
-                            onChange={(e) => setNewItem({ ...newItem, isHighlighted: e.target.checked })}
+                            checked={newItem.pinned}
+                            onChange={(e) => setNewItem({ ...newItem, pinned: e.target.checked })}
                             style={{ marginRight: '0.5rem' }}
                         />
                         <label
-                            htmlFor="itemHighlight"
+                            htmlFor="itemPinned"
                             style={{
                                 color: textColor,
                                 cursor: 'pointer'
@@ -1748,14 +1794,14 @@ const BucketsPage = () => {
                         alignItems: 'center'
                     }}>
                         <input
-                            id="editItemHighlight"
+                            id="editItemPinned"
                             type="checkbox"
-                            checked={editingItem?.isHighlighted || false}
-                            onChange={(e) => setEditingItem({ ...editingItem, isHighlighted: e.target.checked })}
+                            checked={editingItem?.pinned || false}
+                            onChange={(e) => setEditingItem({ ...editingItem, pinned: e.target.checked })}
                             style={{ marginRight: '0.5rem' }}
                         />
                         <label
-                            htmlFor="editItemHighlight"
+                            htmlFor="editItemPinned"
                             style={{
                                 color: textColor,
                                 cursor: 'pointer'

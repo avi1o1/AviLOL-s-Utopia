@@ -119,10 +119,10 @@ const exportUserData = asyncHandler(async (req, res) => {
         const simplifiedBuckets = buckets.map(bucket => ({
             name: bucket.name,
             description: bucket.description,
-            pinned: bucket.isHighlighted,
+            pinned: bucket.pinned,
             items: bucket.items.map(item => ({
                 content: item.content,
-                pinned: item.isHighlighted
+                pinned: item.pinned
             }))
         }));
 
@@ -321,7 +321,7 @@ const importUserData = asyncHandler(async (req, res) => {
                             // Add only non-duplicate items
                             existingBucket.items.push({
                                 content: itemData.content,
-                                isHighlighted: itemData.pinned || false
+                                pinned: itemData.pinned || false
                             });
                             itemsAdded++;
                         }
@@ -338,7 +338,7 @@ const importUserData = asyncHandler(async (req, res) => {
                         description: bucketData.description || '',
                         icon: bucketData.icon || '📝',
                         color: bucketData.color || '#3498db',
-                        isHighlighted: bucketData.pinned || false,
+                        pinned: bucketData.pinned || false,
                         items: []
                     });
 
@@ -347,7 +347,7 @@ const importUserData = asyncHandler(async (req, res) => {
                         if (itemData.content) {
                             bucket.items.push({
                                 content: itemData.content,
-                                isHighlighted: itemData.pinned || false
+                                pinned: itemData.pinned || false
                             });
                             importedItems++;
                         }
