@@ -239,6 +239,23 @@ const PrivacyPage = () => {
                     We may update this Privacy Policy periodically to reflect changes in our practices or legal requirements. When we make material changes, we will notify users through the application interface prior to the changes becoming effective. Your continued use of YouTopia following such notifications constitutes your acceptance of the updated Privacy Policy.
                 </p>
 
+                <h2 style={{ color: headingColor, fontSize: '1.5rem', marginBottom: '1rem' }}>9. OPEN SOURCE CODE</h2>
+                <p style={{ marginBottom: '1.5rem' }}>
+                    YouTopia is an open source project. All the code that powers this platform is publicly available and can be accessed, reviewed, and contributed to at <a
+                        href="https://github.com/avi1o1/AviLOL-s-Utopia"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            color: theme.primary,
+                            textDecoration: 'underline',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        github.com/avi1o1/AviLOL-s-Utopia
+                    </a>.
+                    This transparency allows security researchers and privacy advocates to verify our privacy and security claims, ensuring that we maintain the highest standards of data protection.
+                </p>
+
                 <div style={{
                     backgroundColor: isDarkTheme ? `${theme.accent}30` : `${theme.accent}20`,
                     padding: '1.5rem',

@@ -17,11 +17,11 @@ const GuestView = () => {
         theme.text === '#F8FAFC';
 
     // Determine text and background colors based on theme
-    const textColor = isDarkTheme ? theme.text : theme.dark;
-    const textColorLight = isDarkTheme ? theme.textLight : theme.text;
+    const textColor = theme.text;
+    const textColorLight = theme.text;
     const backgroundColorMain = isDarkTheme ? theme.dark : theme.light;
     const backgroundColorCard = isDarkTheme ? theme.dark : theme.light;
-    const highlightColor = isDarkTheme ? theme.light : theme.dark;
+    const highlightColor = theme.accent;
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -75,14 +75,13 @@ const GuestView = () => {
                     }}>
                         <Link to="/signup" style={{
                             backgroundColor: theme.primary,
-                            color: highlightColor,
+                            color: 'white',
                             padding: '0.75rem 1.5rem',
                             borderRadius: '8px',
                             fontWeight: 'bold',
                             textDecoration: 'none',
                             fontSize: '1.1rem',
-                            border: `3px solid ${theme.dark}`,
-                            boxShadow: `5px 5px 0 ${theme.dark}40`,
+                            boxShadow: `5px 5px 0 ${theme.text}30`,
                             transition: 'all 0.2s ease'
                         }}>
                             Get Started - It's Free
@@ -97,7 +96,7 @@ const GuestView = () => {
                             textDecoration: 'none',
                             fontSize: '1.1rem',
                             border: `3px solid ${theme.primary}`,
-                            boxShadow: `5px 5px 0 ${theme.dark}40`,
+                            boxShadow: `5px 5px 0 ${theme.text}30`,
                             transition: 'all 0.2s ease'
                         }}>
                             Sign In
@@ -289,8 +288,8 @@ const GuestView = () => {
                         <div key={i} style={{
                             flex: '1 1 250px',
                             padding: '1.5rem',
-                            backgroundColor: isDarkTheme ? theme.light + '20' : highlightColor,
-                            color: isDarkTheme ? theme.light : theme.text,
+                            backgroundColor: theme.light,
+                            color: theme.text,
                             borderRadius: '8px',
                             boxShadow: isDarkTheme ? `0 5px 15px ${theme.dark}60` : `0 5px 15px ${theme.dark}20`,
                             position: 'relative',
@@ -363,7 +362,7 @@ const GuestView = () => {
                             height: '100%'
                         }}>
                             <div style={{
-                                fontSize: '3rem',
+                                fontSize: '2rem',
                                 marginBottom: '1rem'
                             }}>{feature.icon}</div>
                             <h3 style={{
@@ -480,13 +479,13 @@ const GuestView = () => {
             <section style={{
                 padding: '5rem 2rem',
                 background: theme.primary,
-                color: highlightColor,
+                color: 'white',
                 textAlign: 'center'
             }}>
                 <h2 style={{
                     fontSize: 'clamp(2rem, 3vw, 2.5rem)',
                     marginBottom: '1.5rem',
-                    color: highlightColor
+                    color: 'white'
                 }}>Ready to Start Your Digital Sanctuary?</h2>
 
                 <p style={{
@@ -505,7 +504,7 @@ const GuestView = () => {
                     flexWrap: 'wrap'
                 }}>
                     <Link to="/signup" style={{
-                        backgroundColor: highlightColor,
+                        backgroundColor: 'white',
                         color: theme.primary,
                         padding: '0.75rem 1.5rem',
                         borderRadius: '8px',
@@ -520,8 +519,8 @@ const GuestView = () => {
                     </Link>
 
                     <Link to="/login" style={{
-                        backgroundColor: 'transparent',
-                        color: highlightColor,
+                        backgroundColor: theme.primary,
+                        color: 'white',
                         padding: '0.75rem 1.5rem',
                         borderRadius: '8px',
                         fontWeight: 'bold',
@@ -549,6 +548,36 @@ const GuestView = () => {
                 }
                 `}
             </style>
+
+            {/* Small floating badge for open source information */}
+            <div style={{
+                position: 'fixed',
+                bottom: '20px',
+                right: '20px',
+                padding: '8px 12px',
+                backgroundColor: isDarkTheme ? `${theme.dark}E6` : `${theme.light}E6`,
+                border: `2px solid ${theme.primary}`,
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                boxShadow: `3px 3px 0 ${theme.dark}40`,
+                zIndex: 10,
+                backdropFilter: 'blur(5px)'
+            }}>
+                <a
+                    href="https://github.com/avi1o1/AviLOL-s-Utopia"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                        color: textColor,
+                        textDecoration: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px'
+                    }}
+                >
+                    <span style={{ fontSize: '1.1rem' }}>⭐</span> Open Source Project
+                </a>
+            </div>
         </div>
     );
 };

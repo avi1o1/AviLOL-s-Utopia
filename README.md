@@ -2,6 +2,8 @@
 
 A personal, private space for journaling, diary entries, memorable moments, and media collection with neobrutalism styling and customizable themes.
 
+This project is open source and can be accessed at https://github.com/avi1o1/AviLOL-s-Utopia
+
 ## Features
 
 ### Current Features
