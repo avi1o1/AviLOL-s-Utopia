@@ -164,24 +164,38 @@ const PrivacyPage = () => {
                     <li style={{ marginBottom: '0.5rem' }}>All communication between your device and our servers is encrypted using SSL/TLS protocols.</li>
                     <li style={{ marginBottom: '0.5rem' }}>Passwords are never stored in plain text and are securely hashed using industry-standard algorithms.</li>
                     <li style={{ marginBottom: '0.5rem' }}>Server access is strictly limited and protected by multiple security layers.</li>
-                    <li style={{ marginBottom: '0.5rem' }}>End-to-end encryption is implemented for all user content, providing an additional security layer.</li>
                 </ul>
                 <p style={{ marginBottom: '1rem' }}>
-                    <strong>End-to-End Encryption:</strong> Our platform uses end-to-end encryption for all user-generated content, which means:
+                    <strong>End-to-End Encryption:</strong> Our platform implements client-side end-to-end encryption for all user data, which means:
                 </p>
                 <ul style={{ listStyleType: 'disc', marginLeft: '1.5rem', marginBottom: '1rem' }}>
-                    <li style={{ marginBottom: '0.5rem' }}>Your diary entries, journal posts, and bucket lists are encrypted on your device before transmission.</li>
-                    <li style={{ marginBottom: '0.5rem' }}>The content remains encrypted during storage on our servers.</li>
-                    <li style={{ marginBottom: '0.5rem' }}>Only you, with your encryption key, can decrypt and read the content.</li>
-                    <li style={{ marginBottom: '0.5rem' }}>Even in the event of a data breach or legal compulsion, your content remains encrypted and unreadable without your encryption key.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Your diary entries, journal posts, and bucket lists are encrypted directly on your device before transmission to our servers using AES-GCM encryption.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Encryption keys are derived from your password using the Web Crypto API's PBKDF2 algorithm with 100,000 iterations for maximum security.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Our servers store only encrypted data and never have access to your encryption keys or decryption capabilities.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>Even in the event of a data breach or legal compulsion, your content remains encrypted and unreadable without your unique encryption key.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>The key used for encryption/decryption is stored locally in your browser and never transmitted to our servers.</li>
                 </ul>
+                <div style={{
+                    backgroundColor: isDarkTheme ? `${theme.accent}30` : `${theme.accent}20`,
+                    padding: '1rem',
+                    borderRadius: '0.5rem',
+                    borderLeft: `4px solid ${theme.primary}`,
+                    marginBottom: '1.5rem'
+                }}>
+                    <p style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                        Important Security Note:
+                    </p>
+                    <p>
+                        Since your encryption key is derived from your password, <strong>if you forget your password, your encrypted data cannot be recovered</strong> as we do not have access to your encryption keys.
+                    </p>
+                </div>
                 <p style={{ marginBottom: '1rem' }}>
                     <strong>Data Import/Export Security:</strong> When importing or exporting data:
                 </p>
                 <ul style={{ listStyleType: 'disc', marginLeft: '1.5rem', marginBottom: '1.5rem' }}>
                     <li style={{ marginBottom: '0.5rem' }}>Exported data can be encrypted to maintain privacy even when stored outside our platform.</li>
                     <li style={{ marginBottom: '0.5rem' }}>Plain text data imports are automatically encrypted before being stored in our system.</li>
-                    <li style={{ marginBottom: '0.5rem' }}>Encrypted imports are verified for compatibility with your current encryption key.</li>
+                    <li style={{ marginBottom: '0.5rem' }}>When importing previously encrypted data, we validate compatibility with your current encryption key.</li>
                     <li style={{ marginBottom: '0.5rem' }}>For best results when importing previously encrypted data, use the same account that created the export or ensure both accounts have the same password.</li>
                 </ul>
 

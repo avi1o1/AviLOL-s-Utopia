@@ -415,6 +415,12 @@ const BucketsPage = () => {
         try {
             setDecryptingBucketId(bucket._id);
             const decryptedBucket = await ensureDecrypted(bucket);
+
+            // Sort items with pinned at top if items exist
+            if (decryptedBucket.items && decryptedBucket.items.length > 0) {
+                decryptedBucket.items = sortItemsWithPinnedAtTop(decryptedBucket.items);
+            }
+
             setSelectedBucket(decryptedBucket);
             setDecryptingBucketId(null);
         } catch (err) {

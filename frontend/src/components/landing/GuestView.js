@@ -326,32 +326,32 @@ const GuestView = () => {
                         {
                             icon: '📔',
                             title: 'Personal Diary',
-                            description: 'Record your daily thoughts and experiences in a secure space, organized by date.'
+                            description: 'Record your daily thoughts and experiences in a secure space, organized by date and week.'
                         },
                         {
                             icon: '📝',
                             title: 'Structured Journal',
-                            description: 'Create organized entries with categories, tags, and formatting. Find exactly what you need, when you need it.'
+                            description: 'Create organized entries with markdown formatting and search functionality to find exactly what you need.'
                         },
                         {
                             icon: '✨',
                             title: 'Capture Buckets',
-                            description: 'Save special memories and milestones in a dedicated space. Never forget life\'s highlights.'
+                            description: 'Create custom collections for anything important - from movies to watch to travel wishlists, all with colorful organization.'
                         },
                         {
                             icon: '🎨',
-                            title: 'Custom Themes',
-                            description: 'Personalize your experience with beautiful visual themes that match your style.'
+                            title: 'Beautiful Themes',
+                            description: 'Choose from over 15 stunning themes including light and dark modes that transform your entire experience.'
+                        },
+                        {
+                            icon: '🔐',
+                            title: 'End-to-End Encryption',
+                            description: 'All your data is encrypted before leaving your device, ensuring maximum privacy and security.'
                         },
                         {
                             icon: '💾',
-                            title: 'Data Export',
-                            description: 'Download your content anytime in JSON format. Your data remains portable and always yours.'
-                        },
-                        {
-                            icon: '🔒',
-                            title: 'Privacy First',
-                            description: 'Your data belongs to you alone. We prioritize security and privacy in everything we do.'
+                            title: 'Data Portability',
+                            description: 'Export and import your data anytime with our simple JSON format. Your memories are always yours.'
                         }
                     ].map((feature, i) => (
                         <div key={i} style={{
@@ -421,22 +421,22 @@ const GuestView = () => {
                         {
                             step: 1,
                             title: 'Create your account',
-                            description: 'Sign up in seconds to get your own personalized space. No credit card required.'
+                            description: 'Sign up in seconds with end-to-end encryption enabled automatically for your security.'
                         },
                         {
                             step: 2,
                             title: 'Choose your theme',
-                            description: 'Select from beautiful themes to make YouTopia feel like your own.'
+                            description: 'Personalize your experience with beautiful visual themes including light and dark modes.'
                         },
                         {
                             step: 3,
-                            title: 'Start journaling',
-                            description: 'Begin recording your thoughts, memories, and experiences right away.'
+                            title: 'Start capturing',
+                            description: 'Begin recording diary entries, journal thoughts, and creating custom bucket collections.'
                         },
                         {
                             step: 4,
                             title: 'Organize and reflect',
-                            description: 'Build your personal knowledge base and see your growth over time.'
+                            description: 'Search, filter, and revisit your entries to see your growth and memories over time.'
                         }
                     ].map((step, i) => (
                         <div key={i} style={{
